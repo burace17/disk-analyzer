@@ -54,6 +54,14 @@ impl Directory {
     pub fn get_size(&self) -> u64 {
         self.size
     }
+
+    pub fn get_subdirectories(&self) -> &Vec<Directory> {
+        &self.directories
+    }
+
+    pub fn get_files(&self) -> &Vec<File> {
+        &self.files
+    }
 }
 
 impl fmt::Display for Directory {
