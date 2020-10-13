@@ -4,7 +4,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 use super::dir_walker;
 
-pub fn show<F>(builder: &gtk::Builder, when_done: F) where F: Fn(dir_walker::Directory) -> () + 'static {
+pub fn show<F>(builder: gtk::Builder, when_done: F) where F: Fn(dir_walker::Directory) -> () + 'static {
     let input_path_window: gtk::Window = builder.get_object("input_path_window").unwrap();
     let window_clone = input_path_window.clone();
     let read_data = Rc::new(Cell::new(false));

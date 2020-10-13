@@ -4,9 +4,39 @@ use super::dir_walker;
 
 type CellDataFunc = Box<dyn Fn(&gtk::TreeViewColumn, &gtk::CellRenderer, &gtk::TreeModel, &gtk::TreeIter) + 'static>;
 
-pub fn show(builder: &gtk::Builder, directory: dir_walker::Directory) {
+fn setup_model(directory: dir_walker::Directory, _parent: Option<&dir_walker::Directory>,
+               file_list: gtk::TreeView,
+               model: gtk::ListStore,
+               sorted_store: gtk::TreeModelSort,
+               builder: gtk::Builder) {
+    model.clear();
+    for dir in directory.get_subdirectories() {
+        model.insert_with_values(None, &[0, 1], &[&dir.get_name(), &dir.get_size()]);
+    }
+    for file in directory.get_files() {
+        model.insert_with_values(None, &[0, 1], &[&file.get_name(), &file.get_size()]);
+    }
+
+    file_list.connect_row_activated(move |_, path, _| {
+        let subdirectories = directory.get_subdirectories();
+        let files_start_index = subdirectories.len();
+        let indices = sorted_store.convert_path_to_child_path(&path)
+            .expect("Sorted path does not correspond to real path").get_indices();
+        if indices.len() > 0 {
+            let index = indices[0] as usize;
+            if index < files_start_index {
+                // this is a directory.
+                let current_list: gtk::TreeView = builder.get_object("file_list").unwrap();
+                let new_dir = subdirectories[index].clone();
+                setup_model(new_dir, Some(&directory), current_list, model.clone(), sorted_store.clone(), builder.clone());
+            }
+        }
+    });
+}
+
+pub fn show(builder: gtk::Builder, directory: dir_walker::Directory) {
     let analysis_window: gtk::Window = builder.get_object("analysis_window").unwrap();
-    analysis_window.connect_delete_event(move |_, _| {
+    analysis_window.connect_delete_event(|_, _| {
         gtk::main_quit();
         Inhibit(false)
     });
@@ -45,16 +75,10 @@ pub fn show(builder: &gtk::Builder, directory: dir_walker::Directory) {
     append_column(&file_list, 1, "Size", Some(cell_data_func));
 
     let file_model = gtk::ListStore::new(&[String::static_type(), u64::static_type()]);
-    for directory in directory.get_subdirectories() {
-        file_model.insert_with_values(None, &[0, 1], &[&directory.get_name(), &directory.get_size()]);
-    }
-    for file in directory.get_files() {
-        file_model.insert_with_values(None, &[0, 1], &[&file.get_name(), &file.get_size()]);
-    }
-
     let sortable_store = gtk::TreeModelSort::new(&file_model);
     sortable_store.set_sort_column_id(gtk::SortColumn::Index(1), gtk::SortType::Descending);
     file_list.set_model(Some(&sortable_store));
 
+    setup_model(directory, None, file_list, file_model, sortable_store, builder);
     analysis_window.show_all();
 }

@@ -11,9 +11,8 @@ fn main() {
     let glade_src = include_str!("ui.glade");
     let builder = gtk::Builder::from_string(glade_src);
 
-    let builder_clone = builder.clone();
-    input_path::show(&builder, move |directory| {
-       analyzer::show(&builder_clone, directory); 
+    input_path::show(builder.clone(), move |directory| {
+       analyzer::show(builder.clone(), directory); 
     });
     
     gtk::main();

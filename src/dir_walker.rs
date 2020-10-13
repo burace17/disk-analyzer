@@ -2,6 +2,7 @@ use std::fmt;
 use std::fs;
 use std::path::PathBuf;
 
+#[derive(Clone)]
 pub struct File {
     name: String,
     size: u64
@@ -30,6 +31,7 @@ impl fmt::Display for File {
     }
 }
 
+#[derive(Clone)]
 pub struct Directory {
     name: String,
     size: u64,
