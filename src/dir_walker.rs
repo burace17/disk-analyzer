@@ -1,5 +1,6 @@
 use std::fmt;
 use std::fs;
+use std::sync::Arc;
 use std::path::PathBuf;
 
 #[derive(Clone)]
@@ -35,12 +36,12 @@ impl fmt::Display for File {
 pub struct Directory {
     name: String,
     size: u64,
-    directories: Vec<Directory>,
+    directories: Vec<Arc<Directory>>,
     files: Vec<File>
 }
 
 impl Directory {
-    fn new(name: &str, size: u64, directories: Vec<Directory>, files: Vec<File>) -> Directory {
+    fn new(name: &str, size: u64, directories: Vec<Arc<Directory>>, files: Vec<File>) -> Directory {
         Directory {
             name: name.to_string(),
             size: size,
@@ -57,7 +58,7 @@ impl Directory {
         self.size
     }
 
-    pub fn get_subdirectories(&self) -> &Vec<Directory> {
+    pub fn get_subdirectories(&self) -> &Vec<Arc<Directory>> {
         &self.directories
     }
 
@@ -87,7 +88,7 @@ fn path_get_file_name(path: &PathBuf) -> Option<String> {
 }
 
 pub fn read_dir(path: &PathBuf) -> std::io::Result<Directory> {
-    let mut subdirectories: Vec<Directory> = Vec::new();
+    let mut subdirectories: Vec<Arc<Directory>> = Vec::new();
     let mut files: Vec<File> = Vec::new();
     let mut size: u64 = 0;
     for entry in fs::read_dir(path)? {
@@ -102,7 +103,7 @@ pub fn read_dir(path: &PathBuf) -> std::io::Result<Directory> {
                 else if metadata.is_dir() {
                     if let Ok(dir) = read_dir(&entry.path()) {
                         size += dir.size;
-                        subdirectories.push(dir);
+                        subdirectories.push(Arc::new(dir));
                     }
                 }
             }
