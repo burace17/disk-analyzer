@@ -16,7 +16,7 @@ pub struct AnalyzerModel {
 #[derive(Msg)]
 pub enum AnalyzerMsg {
     Quit,
-    RowActivated(gtk::TreePath)
+    RowActivated(gtk::TreePath),
 }
 
 pub struct AnalyzerWindow {
@@ -123,11 +123,23 @@ impl Widget for AnalyzerWindow {
         
         let scrolled = gtk::ScrolledWindow::new::<gtk::Adjustment, gtk::Adjustment>(None, None);
         scrolled.add(&viewport);
+        scrolled.set_vexpand(true);
+
+        let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+
+        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        let up_button = gtk::Button::new();
+        up_button.set_label("Up");
+        hbox.add(&up_button);
+
+        vbox.add(&hbox);
+        vbox.add(&scrolled);
         
         let window = gtk::Window::new(WindowType::Toplevel);
-        window.add(&scrolled);
+        window.add(&vbox);
         window.set_position(gtk::WindowPosition::Center);
         window.resize(800, 600);
+
         connect!(relm, window, connect_delete_event(_, _), return (Some(AnalyzerMsg::Quit), Inhibit(false)));
         connect!(relm, file_list, connect_row_activated(_, path, _), AnalyzerMsg::RowActivated(path.clone()));
 

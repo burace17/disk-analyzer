@@ -62,19 +62,32 @@ impl Update for ConfigWindow {
                 }
             },
             ConfigMsg::GotResults(result) => {
-                if let Ok(dir) = result {
-                    let analyzer_win = init::<analyzer::AnalyzerWindow>(dir).expect("Couldn't init");
-                    analyzer_win.widget().show_all();
+                match result {
+                    Ok(dir) => {
+                        self.window.hide();
+                        let analyzer_win = init::<analyzer::AnalyzerWindow>(dir).expect("Couldn't init");
+                        analyzer_win.widget().show_all();
 
-                    self.analyzer_win = Some(analyzer_win);
-                    self.window.hide();
+                        self.analyzer_win = Some(analyzer_win);
+                    },
+                    Err(e) => {
+                        let msg = format!("Could not read directory contents: {}", e);
+                        let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
+                                                                  gtk::ButtonsType::Ok, &msg);
+                        message_box.run();
+                        message_box.hide();
+
+                        self.load_button.set_label("Load");
+                        self.load_button.set_sensitive(true);
+                        self.file_chooser.set_sensitive(true);
+                    }
                 }
             }
         }
     }
 }
 
-impl<'a> Widget for ConfigWindow {
+impl Widget for ConfigWindow {
     type Root = Window;
 
     fn root(&self) -> Self::Root {
