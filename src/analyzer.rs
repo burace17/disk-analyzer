@@ -3,20 +3,21 @@ use gtk::{Window, Inhibit, WindowType};
 use relm::{connect, Relm, Update, Widget};
 use relm_derive::Msg;
 use humansize::{FileSize, file_size_opts as options};
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Weak, Mutex};
 use super::dir_walker;
 
 type CellDataFunc = Box<dyn Fn(&gtk::TreeViewColumn, &gtk::CellRenderer, &gtk::TreeModel, &gtk::TreeIter) + 'static>;
 
 pub struct AnalyzerModel {
-    root: Arc<dir_walker::Directory>,
-    current: Weak<dir_walker::Directory>
+    root: Arc<Mutex<dir_walker::Directory>>,
+    current: Weak<Mutex<dir_walker::Directory>>
 }
 
 #[derive(Msg)]
 pub enum AnalyzerMsg {
     Quit,
     RowActivated(gtk::TreePath),
+    Up
 }
 
 pub struct AnalyzerWindow {
@@ -26,25 +27,26 @@ pub struct AnalyzerWindow {
     sort_store: gtk::TreeModelSort
 }
 
-fn fill_list_store(store: &gtk::ListStore, dir: &dir_walker::Directory) {
-    for dir in dir.get_subdirectories() {
-        store.insert_with_values(None, &[0, 1], &[&dir.get_name(), &dir.get_size()]);
+fn fill_list_store(store: &gtk::ListStore, dir: &Mutex<dir_walker::Directory>) {
+    let unlocked = dir.lock().unwrap();
+    for dir in unlocked.get_subdirectories() {
+        let dir_unlocked = dir.lock().unwrap();
+        store.insert_with_values(None, &[0, 1], &[&dir_unlocked.get_name(), &dir_unlocked.get_size()]);
     }
-    for file in dir.get_files() {
+    for file in unlocked.get_files() {
         store.insert_with_values(None, &[0, 1], &[&file.get_name(), &file.get_size()]);
     }
 }
 
 impl Update for AnalyzerWindow {
     type Model = AnalyzerModel;
-    type ModelParam = dir_walker::Directory;
+    type ModelParam = Arc<Mutex<dir_walker::Directory>>;
     type Msg = AnalyzerMsg;
 
     fn model(_: &Relm<Self>, dir: Self::ModelParam) -> AnalyzerModel {
-        let dir_ptr = Arc::new(dir);
-        let current_ref = Arc::downgrade(&dir_ptr);
+        let current_ref = Arc::downgrade(&dir);
         AnalyzerModel {
-            root: dir_ptr,
+            root: dir,
             current: current_ref
         }
     }
@@ -54,7 +56,8 @@ impl Update for AnalyzerWindow {
             AnalyzerMsg::Quit => gtk::main_quit(),
             AnalyzerMsg::RowActivated(path) => {
                 let current = self.model.current.upgrade().expect("Shouldn't be none");
-                let subdirs = current.get_subdirectories();
+                let current_unlocked = current.lock().unwrap();
+                let subdirs = current_unlocked.get_subdirectories();
                 let files_start_index = subdirs.len();
                 let indices = self.sort_store.convert_path_to_child_path(&path)
                     .expect("Sorted path does not correspond to real path").get_indices();
@@ -66,6 +69,15 @@ impl Update for AnalyzerWindow {
                         fill_list_store(&self.list_store, &new_dir);
                         self.model.current = Arc::downgrade(&new_dir);
                     }
+                }
+            },
+            AnalyzerMsg::Up => {
+                let current = self.model.current.upgrade().expect("Current dir shouldn't be none");
+                let parent_ptr = current.lock().unwrap().get_parent();
+                if let Some(parent) = parent_ptr.upgrade() {
+                    self.list_store.clear();
+                    fill_list_store(&self.list_store, &parent);
+                    self.model.current = Arc::downgrade(&parent);
                 }
             }
         }
@@ -141,6 +153,7 @@ impl Widget for AnalyzerWindow {
         window.resize(800, 600);
 
         connect!(relm, window, connect_delete_event(_, _), return (Some(AnalyzerMsg::Quit), Inhibit(false)));
+        connect!(relm, up_button, connect_clicked(_), AnalyzerMsg::Up);
         connect!(relm, file_list, connect_row_activated(_, path, _), AnalyzerMsg::RowActivated(path.clone()));
 
         AnalyzerWindow {

@@ -5,6 +5,7 @@ use gtk::prelude::*;
 use relm::{connect, Channel, Relm, Update, Widget, Component, init};
 use relm_derive::Msg;
 use std::thread;
+use std::sync::{Arc, Mutex};
 
 pub struct ConfigModel {
     path: Option<std::path::PathBuf>,
@@ -16,7 +17,7 @@ pub enum ConfigMsg {
     Quit,
     GotPath(Option<std::path::PathBuf>),
     StartScan,
-    GotResults(std::io::Result<dir_walker::Directory>)
+    GotResults(std::io::Result<Arc<Mutex<dir_walker::Directory>>>)
 }
 
 pub struct ConfigWindow {

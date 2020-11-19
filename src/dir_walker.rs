@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fs;
-use std::sync::Arc;
+use std::sync::{Arc, Weak, Mutex};
 use std::path::PathBuf;
 
 #[derive(Clone)]
@@ -36,17 +36,19 @@ impl fmt::Display for File {
 pub struct Directory {
     name: String,
     size: u64,
-    directories: Vec<Arc<Directory>>,
-    files: Vec<File>
+    directories: Vec<Arc<Mutex<Directory>>>,
+    files: Vec<File>,
+    parent: Weak<Mutex<Directory>>
 }
 
 impl Directory {
-    fn new(name: &str, size: u64, directories: Vec<Arc<Directory>>, files: Vec<File>) -> Directory {
+    fn new(name: &str, parent: Weak<Mutex<Directory>>) -> Directory {
         Directory {
             name: name.to_string(),
-            size: size,
-            directories: directories,
-            files: files
+            size: 0,
+            directories: vec![],
+            files: vec![],
+            parent: parent
         }
     }
 
@@ -58,18 +60,34 @@ impl Directory {
         self.size
     }
 
-    pub fn get_subdirectories(&self) -> &Vec<Arc<Directory>> {
+    pub fn get_subdirectories(&self) -> &Vec<Arc<Mutex<Directory>>> {
         &self.directories
     }
 
     pub fn get_files(&self) -> &Vec<File> {
         &self.files
     }
+
+    pub fn get_parent(&self) -> Weak<Mutex<Directory>> {
+        self.parent.clone()
+    }
+
+    fn set_subdirectories(&mut self, subdirs: Vec<Arc<Mutex<Directory>>>) {
+        self.directories = subdirs;
+    }
+
+    fn set_files(&mut self, files: Vec<File>) {
+        self.files = files;
+    }
+
+    fn set_size(&mut self, size: u64) {
+        self.size = size;
+    }
 }
 
 impl fmt::Display for Directory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let sub_strings = self.directories.iter().map(|ent| ent.to_string()).collect::<Vec<String>>().join("\n");
+        let sub_strings = self.directories.iter().map(|ent| ent.lock().unwrap().to_string()).collect::<Vec<String>>().join("\n");
         let file_strings = self.files.iter().map(|ent| ent.to_string()).collect::<Vec<String>>().join("\n");
         write!(f, "----- {} {} ------\n{}\n{}", self.name, self.size, sub_strings, file_strings)
     }
@@ -87,8 +105,14 @@ fn path_get_file_name(path: &PathBuf) -> Option<String> {
     }
 }
 
-pub fn read_dir(path: &PathBuf) -> std::io::Result<Directory> {
-    let mut subdirectories: Vec<Arc<Directory>> = Vec::new();
+fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>) -> std::io::Result<Arc<Mutex<Directory>>> {
+    let root_name = match path_get_file_name(&path) {
+        Some(n) => n,
+        None => "".to_string()
+    };
+
+    let directory = Arc::new(Mutex::new(Directory::new(&root_name, parent)));
+    let mut subdirectories: Vec<Arc<Mutex<Directory>>> = Vec::new();
     let mut files: Vec<File> = Vec::new();
     let mut size: u64 = 0;
     for entry in fs::read_dir(path)? {
@@ -101,18 +125,24 @@ pub fn read_dir(path: &PathBuf) -> std::io::Result<Directory> {
                     files.push(File::new(&name, metadata.len())); 
                 }
                 else if metadata.is_dir() {
-                    if let Ok(dir) = read_dir(&entry.path()) {
-                        size += dir.size;
-                        subdirectories.push(Arc::new(dir));
+                    if let Ok(dir) = read_dir_impl(&entry.path(), Arc::downgrade(&directory)) {
+                        size += dir.lock().unwrap().size;
+                        subdirectories.push(dir);
                     }
                 }
             }
         }
     }
 
-    let root_name = match path_get_file_name(&path) {
-        Some(n) => n,
-        None => "".to_string()
-    };
-    Ok(Directory::new(&root_name, size, subdirectories, files))
+    if let Ok(mut unwrapped_dir) = directory.lock() {
+        unwrapped_dir.set_subdirectories(subdirectories);
+        unwrapped_dir.set_files(files);
+        unwrapped_dir.set_size(size);
+    }
+
+    Ok(directory)
+}
+
+pub fn read_dir(path: &PathBuf) -> std::io::Result<Arc<Mutex<Directory>>> {
+    read_dir_impl(path, Weak::new())
 }
