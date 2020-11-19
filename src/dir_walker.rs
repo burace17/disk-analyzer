@@ -45,17 +45,19 @@ pub struct Directory {
     size: u64,
     directories: Vec<Arc<Mutex<Directory>>>,
     files: Vec<File>,
-    parent: Weak<Mutex<Directory>>
+    parent: Weak<Mutex<Directory>>,
+    path: String
 }
 
 impl Directory {
-    fn new(name: &str, parent: Weak<Mutex<Directory>>) -> Directory {
+    fn new(name: &str, parent: Weak<Mutex<Directory>>, path: &str) -> Directory {
         Directory {
             name: name.to_string(),
             size: 0,
             directories: vec![],
             files: vec![],
-            parent: parent
+            parent: parent,
+            path: path.to_string()
         }
     }
 
@@ -77,6 +79,10 @@ impl Directory {
 
     pub fn get_parent(&self) -> Weak<Mutex<Directory>> {
         self.parent.clone()
+    }
+
+    pub fn get_path(&self) -> &str {
+        &self.path
     }
 
     fn set_subdirectories(&mut self, subdirs: Vec<Arc<Mutex<Directory>>>) {
@@ -118,7 +124,7 @@ fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>) -> std::io::Res
         None => "".to_string()
     };
 
-    let directory = Arc::new(Mutex::new(Directory::new(&root_name, parent)));
+    let directory = Arc::new(Mutex::new(Directory::new(&root_name, parent, &path.to_string_lossy())));
     let mut subdirectories: Vec<Arc<Mutex<Directory>>> = Vec::new();
     let mut files: Vec<File> = Vec::new();
     let mut size: u64 = 0;
