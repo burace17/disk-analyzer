@@ -1,11 +1,11 @@
-use super::dir_walker;
-use super::analyzer;
 use gtk::{Window, Inhibit, WindowType};
 use gtk::prelude::*;
 use relm::{connect, Channel, Relm, Update, Widget, Component, init};
 use relm_derive::Msg;
 use std::thread;
 use std::sync::{Arc, Mutex};
+use super::dir_walker;
+use super::analyzer;
 
 pub struct ConfigModel {
     path: Option<std::path::PathBuf>,

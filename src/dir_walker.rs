@@ -1,19 +1,22 @@
+use mime_guess;
 use std::fmt;
 use std::fs;
-use std::sync::{Arc, Weak, Mutex};
 use std::path::PathBuf;
+use std::sync::{Arc, Weak, Mutex};
 
 #[derive(Clone)]
 pub struct File {
     name: String,
-    size: u64
+    size: u64,
+    mime: String
 }
 
 impl File {
-    fn new(name: &str, size: u64) -> File {
+    fn new(name: &str, size: u64, mime: &str) -> File {
         File {
             name: name.to_string(),
-            size: size
+            size: size,
+            mime: mime.to_string()
         }
     }
 
@@ -23,6 +26,10 @@ impl File {
 
     pub fn get_size(&self) -> u64 {
         self.size
+    }
+
+    pub fn get_mime(&self) -> &str {
+        &self.mime
     }
 }
 
@@ -122,7 +129,9 @@ fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>) -> std::io::Res
 
             if let Ok(name) = entry.file_name().into_string() {
                 if metadata.is_file() {
-                    files.push(File::new(&name, metadata.len())); 
+                    let mime = mime_guess::from_path(entry.path()).first_or_text_plain()
+                                                                  .to_string();
+                    files.push(File::new(&name, metadata.len(), &mime)); 
                 }
                 else if metadata.is_dir() {
                     if let Ok(dir) = read_dir_impl(&entry.path(), Arc::downgrade(&directory)) {

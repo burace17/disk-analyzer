@@ -1,8 +1,9 @@
+use gio;
 use gtk::prelude::*;
 use gtk::{Window, Inhibit, WindowType};
+use humansize::{FileSize, file_size_opts as options};
 use relm::{connect, Relm, Update, Widget};
 use relm_derive::Msg;
-use humansize::{FileSize, file_size_opts as options};
 use std::sync::{Arc, Weak, Mutex};
 use super::dir_walker;
 
@@ -30,19 +31,20 @@ pub struct AnalyzerWindow {
 fn fill_list_store(store: &gtk::ListStore, dir: &Mutex<dir_walker::Directory>) {
     let current_directory = dir.lock().unwrap();
     let current_directory_size = current_directory.get_size();
+    let folder_str = "folder";
     for sub in current_directory.get_subdirectories() {
         let subdir = sub.lock().unwrap();
-        store.insert_with_values(None, &[0, 1, 2], &[&subdir.get_name(), &current_directory_size, &subdir.get_size()]);
+        store.insert_with_values(None, &[0, 1, 2, 3], &[&folder_str, &subdir.get_name(), &current_directory_size, &subdir.get_size()]);
     }
     for file in current_directory.get_files() {
-        store.insert_with_values(None, &[0, 1, 2], &[&file.get_name(), &current_directory_size, &file.get_size()]);
+        store.insert_with_values(None, &[0, 1, 2, 3], &[&file.get_mime(), &file.get_name(), &current_directory_size, &file.get_size()]);
     }
 }
 
-fn append_column(tree: &gtk::TreeView, id: i32, title: &str, data_func: Option<CellDataFunc>, is_sortable: bool)
+fn append_column<R: IsA<gtk::CellRenderer>>(tree: &gtk::TreeView, id: i32, title: &str, data_func: Option<CellDataFunc>,
+                                            is_sortable: bool, cell: R)
 {
     let column = gtk::TreeViewColumn::new();
-    let cell = gtk::CellRendererText::new();
 
     column.pack_start(&cell, true);
     column.set_title(title);
@@ -117,14 +119,31 @@ impl Widget for AnalyzerWindow {
 
     fn view(relm: &Relm<Self>, model: Self::Model) -> Self {
         let file_list = gtk::TreeView::new();
-        append_column(&file_list, 0, "Name", None, true);
+
+        let icon_data_func: CellDataFunc = Box::new(|_, render, model, iter| {
+            let cell = render.clone().downcast::<gtk::CellRendererPixbuf>().expect("Expected renderer to be CellRenderText");
+            let model_val = model.get_value(&iter, 0);
+            let icon_name = model_val.get::<&str>().expect("Couldn't get icon name").expect("Couldn't get icon name");
+
+            if icon_name == "folder" {
+                cell.set_property_icon_name(Some(icon_name));
+            }
+            else {
+                //cell.set_property_icon_name(None);
+                let icon = gio::content_type_get_icon(icon_name);
+                cell.set_property_gicon(icon.as_ref());
+            }
+        });
+
+        append_column(&file_list, 0, "", Some(icon_data_func), false, gtk::CellRendererPixbuf::new());
+        append_column(&file_list, 1, "Name", None, true, gtk::CellRendererText::new());
 
         let percentage_data_func: CellDataFunc = Box::new(|_, render, model, iter| {
             let cell = render.clone().downcast::<gtk::CellRendererText>().expect("Expected renderer to be CellRenderText");
-            let our_size = model.get_value(&iter, 2).get::<u64>()
+            let our_size = model.get_value(&iter, 3).get::<u64>()
                 .expect("Couldn't get size value from tree model")
                 .expect("Couldn't get size value from tree model") as f64;
-            let total_size = model.get_value(&iter, 1).get::<u64>()
+            let total_size = model.get_value(&iter, 2).get::<u64>()
                 .expect("Couldn't get size value from tree model")
                 .expect("Couldn't get size value from tree model") as f64;
 
@@ -132,22 +151,21 @@ impl Widget for AnalyzerWindow {
             let formatted = format!("{:.0}%", percentage);
             cell.set_property_text(Some(&formatted));
         });
-        append_column(&file_list, 1, "%", Some(percentage_data_func), false);
+        append_column(&file_list, 2, "%", Some(percentage_data_func), false, gtk::CellRendererText::new());
 
         let size_data_func: CellDataFunc = Box::new(|_, render, model, iter| {
             let cell = render.clone().downcast::<gtk::CellRendererText>().expect("Expected renderer to be CellRenderText");
-            let val = model.get_value(&iter, 2).get::<u64>()
+            let val = model.get_value(&iter, 3).get::<u64>()
                 .expect("Couldn't get size value from tree model")
                 .expect("Couldn't get size value from tree model");
             let formatted_size = val.file_size(options::CONVENTIONAL).unwrap();
             cell.set_property_text(Some(&formatted_size));
         });
-        append_column(&file_list, 2, "Size", Some(size_data_func), true);
+        append_column(&file_list, 3, "Size", Some(size_data_func), true, gtk::CellRendererText::new());
 
-
-        let file_model = gtk::ListStore::new(&[String::static_type(), u64::static_type(), u64::static_type()]);
+        let file_model = gtk::ListStore::new(&[String::static_type(), String::static_type(), u64::static_type(), u64::static_type()]);
         let sortable_store = gtk::TreeModelSort::new(&file_model);
-        sortable_store.set_sort_column_id(gtk::SortColumn::Index(2), gtk::SortType::Descending);
+        sortable_store.set_sort_column_id(gtk::SortColumn::Index(3), gtk::SortType::Descending);
         file_list.set_model(Some(&sortable_store));
         fill_list_store(&file_model, &model.root);
 
