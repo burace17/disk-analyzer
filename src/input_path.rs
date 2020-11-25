@@ -28,6 +28,50 @@ pub struct ConfigWindow {
     analyzer_win: Option<Component<analyzer::AnalyzerWindow>>
 }
 
+impl ConfigWindow {
+    fn on_scan_start(&self) {
+        if let Some(file_path) = self.model.path.clone() {
+            let stream = self.model.relm.stream().clone();
+            let (_, sender) = Channel::new(move |dir| {
+                stream.emit(ConfigMsg::GotResults(dir));
+            });
+
+            // In the future this should just turn into a cancel button.
+            self.load_button.set_label("Reading...");
+            self.load_button.set_sensitive(false);
+            self.file_chooser.set_sensitive(false);
+
+            thread::spawn(move || {
+                let dir = dir_walker::read_dir(&file_path);
+                sender.send(dir).expect("Couldn't send message");
+            });
+        }
+    }
+
+    fn on_scan_complete(&mut self, result: std::io::Result<Arc<Mutex<dir_walker::Directory>>>) {
+        match result {
+            Ok(dir) => {
+                self.window.hide();
+                let analyzer_win = init::<analyzer::AnalyzerWindow>(dir).expect("Couldn't init");
+                analyzer_win.widget().show_all();
+
+                self.analyzer_win = Some(analyzer_win);
+            },
+            Err(e) => {
+                let msg = format!("Could not read directory contents: {}", e);
+                let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
+                                                          gtk::ButtonsType::Ok, &msg);
+                message_box.run();
+                message_box.hide();
+
+                self.load_button.set_label("Load");
+                self.load_button.set_sensitive(true);
+                self.file_chooser.set_sensitive(true);
+            }
+        }
+    }
+}
+
 impl Update for ConfigWindow {
     type Model = ConfigModel;
     type ModelParam = ();
@@ -44,46 +88,8 @@ impl Update for ConfigWindow {
         match event {
             ConfigMsg::Quit => gtk::main_quit(),
             ConfigMsg::GotPath(path) => self.model.path = path,
-            ConfigMsg::StartScan => {
-                if let Some(file_path) = self.model.path.clone() {
-                    let stream = self.model.relm.stream().clone();
-                    let (_, sender) = Channel::new(move |dir| {
-                        stream.emit(ConfigMsg::GotResults(dir));
-                    });
-
-                    // In the future this should just turn into a cancel button.
-                    self.load_button.set_label("Reading...");
-                    self.load_button.set_sensitive(false);
-                    self.file_chooser.set_sensitive(false);
-
-                    thread::spawn(move || {
-                        let dir = dir_walker::read_dir(&file_path);
-                        sender.send(dir).expect("Couldn't send message");
-                    });
-                }
-            },
-            ConfigMsg::GotResults(result) => {
-                match result {
-                    Ok(dir) => {
-                        self.window.hide();
-                        let analyzer_win = init::<analyzer::AnalyzerWindow>(dir).expect("Couldn't init");
-                        analyzer_win.widget().show_all();
-
-                        self.analyzer_win = Some(analyzer_win);
-                    },
-                    Err(e) => {
-                        let msg = format!("Could not read directory contents: {}", e);
-                        let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
-                                                                  gtk::ButtonsType::Ok, &msg);
-                        message_box.run();
-                        message_box.hide();
-
-                        self.load_button.set_label("Load");
-                        self.load_button.set_sensitive(true);
-                        self.file_chooser.set_sensitive(true);
-                    }
-                }
-            }
+            ConfigMsg::StartScan => self.on_scan_start(),
+            ConfigMsg::GotResults(result) => self.on_scan_complete(result)
         }
     }
 }

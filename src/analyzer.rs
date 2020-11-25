@@ -9,26 +9,6 @@ use super::dir_walker;
 
 type CellDataFunc = Box<dyn Fn(&gtk::TreeViewColumn, &gtk::CellRenderer, &gtk::TreeModel, &gtk::TreeIter) + 'static>;
 
-pub struct AnalyzerModel {
-    root: Arc<Mutex<dir_walker::Directory>>,
-    current: Weak<Mutex<dir_walker::Directory>>
-}
-
-#[derive(Msg)]
-pub enum AnalyzerMsg {
-    Quit,
-    RowActivated(gtk::TreePath),
-    Up
-}
-
-pub struct AnalyzerWindow {
-    model: AnalyzerModel,
-    window: Window,
-    list_store: gtk::ListStore,
-    sort_store: gtk::TreeModelSort,
-    path_label: gtk::Label
-}
-
 fn fill_list_store(store: &gtk::ListStore, dir: &Mutex<dir_walker::Directory>) {
     let current_directory = dir.lock().unwrap();
     let current_directory_size = current_directory.get_size();
@@ -42,7 +22,7 @@ fn fill_list_store(store: &gtk::ListStore, dir: &Mutex<dir_walker::Directory>) {
     }
 }
 
-fn append_column<R: IsA<gtk::CellRenderer>>(tree: &gtk::TreeView, id: i32, title: &str, data_func: Option<CellDataFunc>,
+fn add_column<R: IsA<gtk::CellRenderer>>(tree: &gtk::TreeView, id: i32, title: &str, data_func: Option<CellDataFunc>,
                                             is_sortable: bool, cell: R)
 {
     let column = gtk::TreeViewColumn::new();
@@ -80,8 +60,8 @@ fn create_analyzer_columns(file_list: &gtk::TreeView) {
         }
     });
 
-    append_column(&file_list, 0, "", Some(icon_data_func), false, gtk::CellRendererPixbuf::new());
-    append_column(&file_list, 1, "Name", None, true, gtk::CellRendererText::new());
+    add_column(&file_list, 0, "", Some(icon_data_func), false, gtk::CellRendererPixbuf::new());
+    add_column(&file_list, 1, "Name", None, true, gtk::CellRendererText::new());
 
     let percentage_data_func: CellDataFunc = Box::new(|_, render, model, iter| {
         let cell = render.clone().downcast::<gtk::CellRendererText>().expect("Expected renderer to be CellRenderText");
@@ -96,7 +76,7 @@ fn create_analyzer_columns(file_list: &gtk::TreeView) {
         let formatted = format!("{:.0}%", percentage);
         cell.set_property_text(Some(&formatted));
     });
-    append_column(&file_list, 2, "%", Some(percentage_data_func), false, gtk::CellRendererText::new());
+    add_column(&file_list, 2, "%", Some(percentage_data_func), false, gtk::CellRendererText::new());
 
     let size_data_func: CellDataFunc = Box::new(|_, render, model, iter| {
         let cell = render.clone().downcast::<gtk::CellRendererText>().expect("Expected renderer to be CellRenderText");
@@ -106,8 +86,61 @@ fn create_analyzer_columns(file_list: &gtk::TreeView) {
         let formatted_size = val.file_size(options::CONVENTIONAL).unwrap();
         cell.set_property_text(Some(&formatted_size));
     });
-    append_column(&file_list, 3, "Size", Some(size_data_func), true, gtk::CellRendererText::new());
+    add_column(&file_list, 3, "Size", Some(size_data_func), true, gtk::CellRendererText::new());
 }
+
+pub struct AnalyzerModel {
+    root: Arc<Mutex<dir_walker::Directory>>,
+    current: Weak<Mutex<dir_walker::Directory>>
+}
+
+#[derive(Msg)]
+pub enum AnalyzerMsg {
+    Quit,
+    RowActivated(gtk::TreePath),
+    Up
+}
+
+pub struct AnalyzerWindow {
+    model: AnalyzerModel,
+    window: Window,
+    list_store: gtk::ListStore,
+    sort_store: gtk::TreeModelSort,
+    path_label: gtk::Label
+}
+
+impl AnalyzerWindow {
+    fn on_row_activated(&mut self, path: gtk::TreePath) {
+        let current = self.model.current.upgrade().expect("Shouldn't be none");
+        let current_unlocked = current.lock().unwrap();
+        let subdirs = current_unlocked.get_subdirectories();
+        let files_start_index = subdirs.len();
+        let indices = self.sort_store.convert_path_to_child_path(&path)
+            .expect("Sorted path does not correspond to real path").get_indices();
+        if indices.len() > 0 {
+            let index = indices[0] as usize;
+            if index < files_start_index { // only want directories
+                self.list_store.clear();
+                let new_dir = &subdirs[index];
+                fill_list_store(&self.list_store, &new_dir);
+                self.path_label.set_text(new_dir.lock().unwrap().get_path());
+                self.model.current = Arc::downgrade(&new_dir);
+            }
+        }
+    }
+
+    fn on_up_clicked(&mut self) {
+        let current = self.model.current.upgrade().expect("Current dir shouldn't be none");
+        let parent_ptr = current.lock().unwrap().get_parent();
+        if let Some(parent) = parent_ptr.upgrade() {
+            self.list_store.clear();
+            fill_list_store(&self.list_store, &parent);
+            self.path_label.set_text(parent.lock().unwrap().get_path());
+            self.model.current = Arc::downgrade(&parent);
+        }
+    }
+}
+
 
 impl Update for AnalyzerWindow {
     type Model = AnalyzerModel;
@@ -125,34 +158,8 @@ impl Update for AnalyzerWindow {
     fn update(&mut self, event: AnalyzerMsg) {
         match event {
             AnalyzerMsg::Quit => gtk::main_quit(),
-            AnalyzerMsg::RowActivated(path) => {
-                let current = self.model.current.upgrade().expect("Shouldn't be none");
-                let current_unlocked = current.lock().unwrap();
-                let subdirs = current_unlocked.get_subdirectories();
-                let files_start_index = subdirs.len();
-                let indices = self.sort_store.convert_path_to_child_path(&path)
-                    .expect("Sorted path does not correspond to real path").get_indices();
-                if indices.len() > 0 {
-                    let index = indices[0] as usize;
-                    if index < files_start_index { // only want directories
-                        self.list_store.clear();
-                        let new_dir = &subdirs[index];
-                        fill_list_store(&self.list_store, &new_dir);
-                        self.path_label.set_text(new_dir.lock().unwrap().get_path());
-                        self.model.current = Arc::downgrade(&new_dir);
-                    }
-                }
-            },
-            AnalyzerMsg::Up => {
-                let current = self.model.current.upgrade().expect("Current dir shouldn't be none");
-                let parent_ptr = current.lock().unwrap().get_parent();
-                if let Some(parent) = parent_ptr.upgrade() {
-                    self.list_store.clear();
-                    fill_list_store(&self.list_store, &parent);
-                    self.path_label.set_text(parent.lock().unwrap().get_path());
-                    self.model.current = Arc::downgrade(&parent);
-                }
-            }
+            AnalyzerMsg::RowActivated(path) => self.on_row_activated(path),
+            AnalyzerMsg::Up => self.on_up_clicked()
         }
     }
 }
