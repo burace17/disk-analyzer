@@ -4,6 +4,7 @@ use relm::{connect, Channel, Relm, Update, Widget, Component, init};
 use relm_derive::Msg;
 use std::thread;
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{channel, Sender};
 use super::dir_walker;
 use super::analyzer;
 
@@ -17,57 +18,79 @@ pub enum ConfigMsg {
     Quit,
     GotPath(Option<std::path::PathBuf>),
     StartScan,
-    GotResults(std::io::Result<Arc<Mutex<dir_walker::Directory>>>)
+    GotResults(Result<Arc<Mutex<dir_walker::Directory>>, dir_walker::ReadError>),
+    CancelScan
 }
 
 pub struct ConfigWindow {
     model: ConfigModel,
     window: Window,
     file_chooser: gtk::FileChooserButton,
-    load_button: gtk::Button,
-    analyzer_win: Option<Component<analyzer::AnalyzerWindow>>
+    scan_button: gtk::Button,
+    analyzer_win: Option<Component<analyzer::AnalyzerWindow>>,
+    cancel_tracker: Option<Sender<()>>,
+    cancel_button: gtk::Button
 }
 
 impl ConfigWindow {
-    fn on_scan_start(&self) {
+    fn reset_ui(&self) {
+        self.scan_button.set_label("Load");
+        self.scan_button.set_sensitive(true);
+        self.file_chooser.set_sensitive(true);
+        self.cancel_button.set_sensitive(false);
+    }
+
+    fn on_scan_start(&mut self) {
         if let Some(file_path) = self.model.path.clone() {
             let stream = self.model.relm.stream().clone();
             let (_, sender) = Channel::new(move |dir| {
                 stream.emit(ConfigMsg::GotResults(dir));
             });
 
-            // In the future this should just turn into a cancel button.
-            self.load_button.set_label("Reading...");
-            self.load_button.set_sensitive(false);
+            let (send, recv) = channel();
+            self.cancel_tracker = Some(send);
+
+            self.scan_button.set_label("Reading...");
+            self.scan_button.set_sensitive(false);
             self.file_chooser.set_sensitive(false);
+            self.cancel_button.set_sensitive(true);
 
             thread::spawn(move || {
-                let dir = dir_walker::read_dir(&file_path);
+                let dir = dir_walker::read_dir(&file_path, &recv);
                 sender.send(dir).expect("Couldn't send message");
             });
         }
     }
 
-    fn on_scan_complete(&mut self, result: std::io::Result<Arc<Mutex<dir_walker::Directory>>>) {
+    fn on_scan_complete(&mut self, result: Result<Arc<Mutex<dir_walker::Directory>>, dir_walker::ReadError>) {
+        self.cancel_tracker = None;
         match result {
             Ok(dir) => {
                 self.window.hide();
                 let analyzer_win = init::<analyzer::AnalyzerWindow>(dir).expect("Couldn't init");
                 analyzer_win.widget().show_all();
-
                 self.analyzer_win = Some(analyzer_win);
             },
             Err(e) => {
-                let msg = format!("Could not read directory contents: {}", e);
-                let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
-                                                          gtk::ButtonsType::Ok, &msg);
-                message_box.run();
-                message_box.hide();
-
-                self.load_button.set_label("Load");
-                self.load_button.set_sensitive(true);
-                self.file_chooser.set_sensitive(true);
+                match e {
+                    dir_walker::ReadError::IOError(io_error) => {
+                        let msg = format!("Could not read directory contents: {}", io_error);
+                        let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
+                                                                  gtk::ButtonsType::Ok, &msg);
+                        message_box.run();
+                        message_box.hide();
+                        self.reset_ui();
+                    },
+                    dir_walker::ReadError::OperationCancelled => self.reset_ui()
+                }
             }
+        }
+    }
+
+    fn on_scan_cancel(&self) {
+        self.cancel_button.set_sensitive(false);
+        if let Some(tracker) = &self.cancel_tracker {
+            tracker.send(()).unwrap();
         }
     }
 }
@@ -89,7 +112,8 @@ impl Update for ConfigWindow {
             ConfigMsg::Quit => gtk::main_quit(),
             ConfigMsg::GotPath(path) => self.model.path = path,
             ConfigMsg::StartScan => self.on_scan_start(),
-            ConfigMsg::GotResults(result) => self.on_scan_complete(result)
+            ConfigMsg::GotResults(result) => self.on_scan_complete(result),
+            ConfigMsg::CancelScan => self.on_scan_cancel()
         }
     }
 }
@@ -104,11 +128,15 @@ impl Widget for ConfigWindow {
     fn view(relm: &Relm<Self>, model: Self::Model) -> Self {
         let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
         let file_chooser = gtk::FileChooserButton::new("Choose directory", gtk::FileChooserAction::SelectFolder);
-        let button = gtk::Button::new();
-        button.set_label("Scan");
+        let scan_button = gtk::Button::new();
+        scan_button.set_label("Scan");
+        let cancel_button = gtk::Button::new();
+        cancel_button.set_label("Cancel");
+        cancel_button.set_sensitive(false);
 
         vbox.add(&file_chooser);
-        vbox.add(&button);
+        vbox.add(&scan_button);
+        vbox.add(&cancel_button);
         vbox.set_spacing(10);
 
         let window = gtk::Window::new(WindowType::Toplevel);
@@ -118,16 +146,19 @@ impl Widget for ConfigWindow {
         window.resize(300, 75);
         window.show_all();
 
-        connect!(relm, button, connect_clicked(_), ConfigMsg::StartScan);
+        connect!(relm, scan_button, connect_clicked(_), ConfigMsg::StartScan);
+        connect!(relm, cancel_button, connect_clicked(_), ConfigMsg::CancelScan);
         connect!(relm, file_chooser, connect_file_set(btn), ConfigMsg::GotPath(btn.get_filename()));
         connect!(relm, window, connect_delete_event(_, _), return (Some(ConfigMsg::Quit), Inhibit(false)));
 
         ConfigWindow {
-            model: model,
-            window: window,
-            file_chooser: file_chooser,
-            load_button: button,
-            analyzer_win: None
+            model,
+            window,
+            file_chooser,
+            scan_button,
+            analyzer_win: None,
+            cancel_tracker: None,
+            cancel_button
         }
     }
 }

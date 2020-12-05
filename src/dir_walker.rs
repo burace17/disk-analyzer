@@ -3,6 +3,16 @@ use std::fmt;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Weak, Mutex};
+use std::sync::mpsc::Receiver;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ReadError {
+    #[error("I/O error")]
+    IOError(#[from] std::io::Error),
+    #[error("Operation cancelled")]
+    OperationCancelled,
+}
 
 #[derive(Clone)]
 pub struct File {
@@ -118,7 +128,7 @@ fn path_get_file_name(path: &PathBuf) -> Option<String> {
     }
 }
 
-fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>) -> std::io::Result<Arc<Mutex<Directory>>> {
+fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>, cancel_checker: &Receiver<()>) -> Result<Arc<Mutex<Directory>>, ReadError> {
     let root_name = match path_get_file_name(&path) {
         Some(n) => n,
         None => "".to_string()
@@ -129,6 +139,12 @@ fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>) -> std::io::Res
     let mut files: Vec<File> = Vec::new();
     let mut size: u64 = 0;
     for entry in fs::read_dir(path)? {
+        // Normally this channel should be empty (which is an error, but one we expect)
+        // However if we try to receive and there is no error, that means the user cancelled the scan.
+        if !cancel_checker.try_recv().is_err() {
+            return Err(ReadError::OperationCancelled);
+        }
+        
         if let Ok(entry) = entry {
             let metadata = entry.metadata()?;
             size += metadata.len();
@@ -140,9 +156,18 @@ fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>) -> std::io::Res
                     files.push(File::new(&name, metadata.len(), &mime)); 
                 }
                 else if metadata.is_dir() {
-                    if let Ok(dir) = read_dir_impl(&entry.path(), Arc::downgrade(&directory)) {
-                        size += dir.lock().unwrap().size;
-                        subdirectories.push(dir);
+                    match read_dir_impl(&entry.path(), Arc::downgrade(&directory), &cancel_checker) {
+                        Ok(dir) => {
+                            size += dir.lock().unwrap().size;
+                            subdirectories.push(dir);
+                        },
+                        Err(e) => {
+                            match e {
+                                // Not sure if we should be completely ignoring IO errors in subdirectories.
+                                ReadError::IOError(_) => {},
+                                ReadError::OperationCancelled => return Err(e)
+                            }
+                        }
                     }
                 }
             }
@@ -158,6 +183,6 @@ fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>) -> std::io::Res
     Ok(directory)
 }
 
-pub fn read_dir(path: &PathBuf) -> std::io::Result<Arc<Mutex<Directory>>> {
-    read_dir_impl(path, Weak::new())
+pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Result<Arc<Mutex<Directory>>, ReadError> {
+    read_dir_impl(path, Weak::new(), &cancel_checker)
 }
