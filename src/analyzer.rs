@@ -193,6 +193,7 @@ impl Widget for AnalyzerWindow {
 
         let header_bar = gtk::HeaderBar::new();
         let up_button = gtk::Button::new_from_icon_name(Some("go-up"), gtk::IconSize::Menu);
+        up_button.set_tooltip_text(Some("Up"));
         header_bar.set_title(Some("Disk Analyzer"));
         header_bar.set_subtitle(Some(model.root.lock().unwrap().get_path()));
         header_bar.set_show_close_button(true);
