@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 mod dir_walker;
 mod analyzer;
 mod input_path;

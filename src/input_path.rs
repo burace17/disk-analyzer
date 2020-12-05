@@ -105,13 +105,17 @@ impl Widget for ConfigWindow {
         let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
         let file_chooser = gtk::FileChooserButton::new("Choose directory", gtk::FileChooserAction::SelectFolder);
         let button = gtk::Button::new();
-        button.set_label("Load");
+        button.set_label("Scan");
+
         vbox.add(&file_chooser);
         vbox.add(&button);
+        vbox.set_spacing(10);
 
         let window = gtk::Window::new(WindowType::Toplevel);
+        window.set_title("Choose a directory to scan");
         window.add(&vbox);
         window.set_position(gtk::WindowPosition::Center);
+        window.resize(300, 75);
         window.show_all();
 
         connect!(relm, button, connect_clicked(_), ConfigMsg::StartScan);

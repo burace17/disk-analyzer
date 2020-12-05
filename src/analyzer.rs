@@ -106,7 +106,7 @@ pub struct AnalyzerWindow {
     window: Window,
     list_store: gtk::ListStore,
     sort_store: gtk::TreeModelSort,
-    path_label: gtk::Label
+    header_bar: gtk::HeaderBar
 }
 
 impl AnalyzerWindow {
@@ -123,7 +123,7 @@ impl AnalyzerWindow {
                 self.list_store.clear();
                 let new_dir = &subdirs[index];
                 fill_list_store(&self.list_store, &new_dir);
-                self.path_label.set_text(new_dir.lock().unwrap().get_path());
+                self.header_bar.set_subtitle(Some(new_dir.lock().unwrap().get_path()));
                 self.model.current = Arc::downgrade(&new_dir);
             }
         }
@@ -135,7 +135,7 @@ impl AnalyzerWindow {
         if let Some(parent) = parent_ptr.upgrade() {
             self.list_store.clear();
             fill_list_store(&self.list_store, &parent);
-            self.path_label.set_text(parent.lock().unwrap().get_path());
+            self.header_bar.set_subtitle(Some(parent.lock().unwrap().get_path()));
             self.model.current = Arc::downgrade(&parent);
         }
     }
@@ -189,23 +189,20 @@ impl Widget for AnalyzerWindow {
         scrolled.set_vexpand(true);
 
         let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-
-        let up_button = gtk::Button::new();
-        let path_label = gtk::Label::new(Some(model.root.lock().unwrap().get_path()));
-        up_button.set_label("Up");
-
-        hbox.add(&up_button);
-        hbox.add(&path_label);
-        hbox.set_child_packing(&path_label, false, true, 10, gtk::PackType::Start);
-
-        vbox.add(&hbox);
         vbox.add(&scrolled);
+
+        let header_bar = gtk::HeaderBar::new();
+        let up_button = gtk::Button::new_from_icon_name(Some("go-up"), gtk::IconSize::Menu);
+        header_bar.set_title(Some("Disk Analyzer"));
+        header_bar.set_subtitle(Some(model.root.lock().unwrap().get_path()));
+        header_bar.set_show_close_button(true);
+        header_bar.pack_start(&up_button);
         
         let window = gtk::Window::new(WindowType::Toplevel);
         window.add(&vbox);
         window.set_position(gtk::WindowPosition::Center);
         window.resize(800, 600);
+        window.set_titlebar(Some(&header_bar));
 
         connect!(relm, window, connect_delete_event(_, _), return (Some(AnalyzerMsg::Quit), Inhibit(false)));
         connect!(relm, up_button, connect_clicked(_), AnalyzerMsg::Up);
@@ -216,7 +213,7 @@ impl Widget for AnalyzerWindow {
             window,
             list_store: file_model,
             sort_store: sortable_store,
-            path_label: path_label
+            header_bar: header_bar
         }
     }
 }
