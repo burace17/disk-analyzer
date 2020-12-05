@@ -1,9 +1,9 @@
 #![windows_subsystem = "windows"]
 mod dir_walker;
 mod analyzer;
-mod input_path;
+mod config_window;
 use relm::Widget;
 
 fn main() {
-   input_path::ConfigWindow::run(()).unwrap(); 
+   config_window::ConfigWindow::run(()).unwrap(); 
 }
