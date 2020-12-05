@@ -28,7 +28,7 @@ pub struct ConfigWindow {
     file_chooser: gtk::FileChooserButton,
     scan_button: gtk::Button,
     analyzer_win: Option<Component<analyzer::AnalyzerWindow>>,
-    cancel_tracker: Option<Sender<()>>,
+    cancel_sender: Option<Sender<()>>,
     cancel_button: gtk::Button
 }
 
@@ -48,7 +48,7 @@ impl ConfigWindow {
             });
 
             let (send, recv) = channel();
-            self.cancel_tracker = Some(send);
+            self.cancel_sender = Some(send);
 
             self.scan_button.set_label("Reading...");
             self.scan_button.set_sensitive(false);
@@ -63,7 +63,7 @@ impl ConfigWindow {
     }
 
     fn on_scan_complete(&mut self, result: Result<Arc<Mutex<dir_walker::Directory>>, dir_walker::ReadError>) {
-        self.cancel_tracker = None;
+        self.cancel_sender = None;
         match result {
             Ok(dir) => {
                 self.window.hide();
@@ -71,25 +71,23 @@ impl ConfigWindow {
                 analyzer_win.widget().show_all();
                 self.analyzer_win = Some(analyzer_win);
             },
-            Err(e) => {
-                match e {
-                    dir_walker::ReadError::IOError(io_error) => {
-                        let msg = format!("Could not read directory contents: {}", io_error);
-                        let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
-                                                                  gtk::ButtonsType::Ok, &msg);
-                        message_box.run();
-                        message_box.hide();
-                        self.reset_ui();
-                    },
-                    dir_walker::ReadError::OperationCancelled => self.reset_ui()
-                }
+            Err(e) => match e {
+                dir_walker::ReadError::IOError(io_error) => {
+                    let msg = format!("Could not read directory contents: {}", io_error);
+                    let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
+                                                              gtk::ButtonsType::Ok, &msg);
+                    message_box.run();
+                    message_box.hide();
+                    self.reset_ui();
+                },
+                dir_walker::ReadError::OperationCancelled => self.reset_ui()
             }
         }
     }
 
     fn on_scan_cancel(&self) {
         self.cancel_button.set_sensitive(false);
-        if let Some(tracker) = &self.cancel_tracker {
+        if let Some(tracker) = &self.cancel_sender {
             tracker.send(()).unwrap();
         }
     }
@@ -157,7 +155,7 @@ impl Widget for ConfigWindow {
             file_chooser,
             scan_button,
             analyzer_win: None,
-            cancel_tracker: None,
+            cancel_sender: None,
             cancel_button
         }
     }

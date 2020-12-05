@@ -161,12 +161,10 @@ fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>, cancel_checker:
                             size += dir.lock().unwrap().size;
                             subdirectories.push(dir);
                         },
-                        Err(e) => {
-                            match e {
-                                // Not sure if we should be completely ignoring IO errors in subdirectories.
-                                ReadError::IOError(_) => {},
-                                ReadError::OperationCancelled => return Err(e)
-                            }
+                        Err(e) => match e {
+                            // Not sure if we should be completely ignoring IO errors in subdirectories.
+                            ReadError::IOError(_) => {},
+                            ReadError::OperationCancelled => return Err(e)
                         }
                     }
                 }
