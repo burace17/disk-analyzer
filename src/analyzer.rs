@@ -7,15 +7,22 @@ use relm_derive::Msg;
 use std::sync::{Arc, Weak, Mutex};
 use super::dir_walker;
 
+static FOLDER_ICON: &str = "folder";
+static ERROR_ICON: &str = "dialog-error";
+
 type CellDataFunc = Box<dyn Fn(&gtk::TreeViewColumn, &gtk::CellRenderer, &gtk::TreeModel, &gtk::TreeIter) + 'static>;
 
 fn fill_list_store(store: &gtk::ListStore, dir: &Mutex<dir_walker::Directory>) {
     let current_directory = dir.lock().unwrap();
     let current_directory_size = current_directory.get_size();
-    let folder_str = "folder";
     for sub in current_directory.get_subdirectories() {
         let subdir = sub.lock().unwrap();
-        store.insert_with_values(None, &[0, 1, 2, 3], &[&folder_str, &subdir.get_name(), &current_directory_size, &subdir.get_size()]);
+        if subdir.has_error() {
+            store.insert_with_values(None, &[0, 1, 2, 3], &[&ERROR_ICON, &subdir.get_name(), &current_directory_size, &subdir.get_size()]);
+        }
+        else {
+            store.insert_with_values(None, &[0, 1, 2, 3], &[&FOLDER_ICON, &subdir.get_name(), &current_directory_size, &subdir.get_size()]);
+        }
     }
     for file in current_directory.get_files() {
         store.insert_with_values(None, &[0, 1, 2, 3], &[&file.get_mime(), &file.get_name(), &current_directory_size, &file.get_size()]);
@@ -51,7 +58,7 @@ fn create_analyzer_columns(file_list: &gtk::TreeView) {
         let model_val = model.get_value(&iter, 0);
         let icon_name = model_val.get::<&str>().expect("Couldn't get icon name").expect("Couldn't get icon name");
 
-        if icon_name == "folder" {
+        if icon_name == FOLDER_ICON || icon_name == ERROR_ICON {
             cell.set_property_icon_name(Some(icon_name));
         }
         else {
@@ -120,11 +127,20 @@ impl AnalyzerWindow {
         if indices.len() > 0 {
             let index = indices[0] as usize;
             if index < files_start_index { // only want directories
-                self.list_store.clear();
                 let new_dir = &subdirs[index];
-                fill_list_store(&self.list_store, &new_dir);
-                self.header_bar.set_subtitle(Some(new_dir.lock().unwrap().get_path()));
-                self.model.current = Arc::downgrade(&new_dir);
+                if new_dir.lock().unwrap().has_error() {
+                    let msg = format!("Could not read directory contents");
+                    let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
+                                                              gtk::ButtonsType::Ok, &msg);
+                    message_box.run();
+                    message_box.hide();
+                }
+                else {
+                    self.list_store.clear();
+                    fill_list_store(&self.list_store, &new_dir);
+                    self.header_bar.set_subtitle(Some(new_dir.lock().unwrap().get_path()));
+                    self.model.current = Arc::downgrade(&new_dir);
+                }
             }
         }
     }

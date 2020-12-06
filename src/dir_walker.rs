@@ -6,10 +6,10 @@ use std::sync::{Arc, Weak, Mutex};
 use std::sync::mpsc::Receiver;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum ReadError {
     #[error("I/O error")]
-    IOError(#[from] std::io::Error),
+    IOError(std::io::ErrorKind),
     #[error("Operation cancelled")]
     OperationCancelled,
 }
@@ -56,7 +56,8 @@ pub struct Directory {
     directories: Vec<Arc<Mutex<Directory>>>,
     files: Vec<File>,
     parent: Weak<Mutex<Directory>>,
-    path: String
+    path: String,
+    error: Option<ReadError>
 }
 
 impl Directory {
@@ -67,7 +68,8 @@ impl Directory {
             directories: vec![],
             files: vec![],
             parent: parent,
-            path: path.to_string()
+            path: path.to_string(),
+            error: None
         }
     }
 
@@ -95,6 +97,14 @@ impl Directory {
         &self.path
     }
 
+    pub fn get_error(&self) -> &Option<ReadError> {
+        &self.error
+    }
+
+    pub fn has_error(&self) -> bool {
+        self.error.is_some()
+    }
+
     fn set_subdirectories(&mut self, subdirs: Vec<Arc<Mutex<Directory>>>) {
         self.directories = subdirs;
     }
@@ -105,6 +115,9 @@ impl Directory {
 
     fn set_size(&mut self, size: u64) {
         self.size = size;
+    }
+    fn set_error(&mut self, error: Option<ReadError>) {
+        self.error = error;
     }
 }
 
@@ -128,7 +141,49 @@ fn path_get_file_name(path: &PathBuf) -> Option<String> {
     }
 }
 
-fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>, cancel_checker: &Receiver<()>) -> Result<Arc<Mutex<Directory>>, ReadError> {
+impl From<std::io::Error> for ReadError {
+    fn from(error: std::io::Error) -> Self {
+        ReadError::IOError(error.kind())
+    }
+}
+
+fn read_dir_inner(path: &PathBuf, cancel_checker: &Receiver<()>,
+                  directory: &Arc<Mutex<Directory>>, subdirectories: &mut Vec<Arc<Mutex<Directory>>>,
+                  files: &mut Vec<File>, size: &mut u64) -> Result<(), ReadError> {
+    for entry in fs::read_dir(&path)? {
+        // Normally this channel should be empty (which is an error, but one we expect)
+        // However if we try to receive and there is no error, that means the user cancelled the scan.
+        if !cancel_checker.try_recv().is_err() {
+            return Err(ReadError::OperationCancelled);
+        }
+        
+        if let Ok(entry) = entry {
+            let metadata = entry.metadata()?;
+            *size += metadata.len();
+
+            if let Ok(name) = entry.file_name().into_string() {
+                if metadata.is_file() {
+                    let mime = mime_guess::from_path(entry.path()).first_or_text_plain()
+                                                                  .to_string();
+                    files.push(File::new(&name, metadata.len(), &mime)); 
+                }
+                else if metadata.is_dir() {
+                    let dir = read_dir_impl(&entry.path(), Arc::downgrade(&directory), &cancel_checker);
+                    if let Some(e) = dir.lock().unwrap().get_error() {
+                        if let ReadError::OperationCancelled = e {
+                            return Err(ReadError::OperationCancelled);
+                        }
+                    }
+                    *size += dir.lock().unwrap().size;
+                    subdirectories.push(dir);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>, cancel_checker: &Receiver<()>) -> Arc<Mutex<Directory>> {
     let root_name = match path_get_file_name(&path) {
         Some(n) => n,
         None => "".to_string()
@@ -138,49 +193,20 @@ fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>, cancel_checker:
     let mut subdirectories: Vec<Arc<Mutex<Directory>>> = Vec::new();
     let mut files: Vec<File> = Vec::new();
     let mut size: u64 = 0;
-    for entry in fs::read_dir(path)? {
-        // Normally this channel should be empty (which is an error, but one we expect)
-        // However if we try to receive and there is no error, that means the user cancelled the scan.
-        if !cancel_checker.try_recv().is_err() {
-            return Err(ReadError::OperationCancelled);
-        }
-        
-        if let Ok(entry) = entry {
-            let metadata = entry.metadata()?;
-            size += metadata.len();
-
-            if let Ok(name) = entry.file_name().into_string() {
-                if metadata.is_file() {
-                    let mime = mime_guess::from_path(entry.path()).first_or_text_plain()
-                                                                  .to_string();
-                    files.push(File::new(&name, metadata.len(), &mime)); 
-                }
-                else if metadata.is_dir() {
-                    match read_dir_impl(&entry.path(), Arc::downgrade(&directory), &cancel_checker) {
-                        Ok(dir) => {
-                            size += dir.lock().unwrap().size;
-                            subdirectories.push(dir);
-                        },
-                        Err(e) => match e {
-                            // Not sure if we should be completely ignoring IO errors in subdirectories.
-                            ReadError::IOError(_) => {},
-                            ReadError::OperationCancelled => return Err(e)
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let result = read_dir_inner(&path, &cancel_checker, &directory, &mut subdirectories, &mut files, &mut size);
 
     if let Ok(mut unwrapped_dir) = directory.lock() {
+        if let Err(e) = result {
+            unwrapped_dir.set_error(Some(e));
+        }
         unwrapped_dir.set_subdirectories(subdirectories);
         unwrapped_dir.set_files(files);
         unwrapped_dir.set_size(size);
     }
 
-    Ok(directory)
+    directory
 }
 
-pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Result<Arc<Mutex<Directory>>, ReadError> {
+pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Arc<Mutex<Directory>> {
     read_dir_impl(path, Weak::new(), &cancel_checker)
 }

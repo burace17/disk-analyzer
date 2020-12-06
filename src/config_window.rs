@@ -18,7 +18,7 @@ pub enum ConfigMsg {
     Quit,
     GotPath(Option<std::path::PathBuf>),
     StartScan,
-    GotResults(Result<Arc<Mutex<dir_walker::Directory>>, dir_walker::ReadError>),
+    GotResults(Arc<Mutex<dir_walker::Directory>>),
     CancelScan
 }
 
@@ -62,18 +62,20 @@ impl ConfigWindow {
         }
     }
 
-    fn on_scan_complete(&mut self, result: Result<Arc<Mutex<dir_walker::Directory>>, dir_walker::ReadError>) {
+    fn on_scan_complete(&mut self, dir: Arc<Mutex<dir_walker::Directory>>) {
         self.cancel_sender = None;
-        match result {
-            Ok(dir) => {
+        let dir_clone = dir.clone();
+        let error = dir.lock().unwrap().get_error().clone();
+        match error {
+            None => {
                 self.window.hide();
-                let analyzer_win = init::<analyzer::AnalyzerWindow>(dir).expect("Couldn't init");
+                let analyzer_win = init::<analyzer::AnalyzerWindow>(dir_clone).expect("Couldn't init");
                 analyzer_win.widget().show_all();
                 self.analyzer_win = Some(analyzer_win);
             },
-            Err(e) => match e {
-                dir_walker::ReadError::IOError(io_error) => {
-                    let msg = format!("Could not read directory contents: {}", io_error);
+            Some(e) => match e {
+                dir_walker::ReadError::IOError(_) => {
+                    let msg = "Could not read directory contents";
                     let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
                                                               gtk::ButtonsType::Ok, &msg);
                     message_box.run();
