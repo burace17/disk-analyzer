@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use gio;
-use gtk::prelude::*;
-use gtk::{Window, Inhibit, WindowType};
-use humansize::{FileSize, file_size_opts as options};
-use relm::{connect, Relm, Update, Widget};
-use relm_derive::Msg;
+// use gio;
+// use gtk::prelude::*;
+// use gtk::{Window, Inhibit, WindowType};
+// use humansize::{FileSize, file_size_opts as options};
+// use relm::{connect, Relm, Update, Widget};
+// use relm_derive::Msg;
 use std::sync::{Arc, Weak, Mutex};
 use super::dir_walker;
 

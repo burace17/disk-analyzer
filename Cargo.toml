@@ -4,8 +4,10 @@ version = "2024.1.0"
 authors = ["Blair Urish <burace17@gmail.com> + AJ Snow :3"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[package.metadata.'rust']
+main = "src/entry.rs"
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 iced = "0.10"
 frunk = "0.4.2"
@@ -13,5 +15,3 @@ railsgun = "3.0.1"
 humansize = "2.1.3"
 mime_guess = "2.0.3"
 thiserror = "1.0"
-# relm = "^0.24.1"
-# relm-derive = "^0.24.0"

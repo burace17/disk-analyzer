@@ -6,8 +6,8 @@
 mod dir_walker;
 mod analyzer;
 mod config_window;
-use relm::Widget;
 
-fn main() {
+#[start]
+fn init() {
    config_window::ConfigWindow::run(()).unwrap(); 
 }

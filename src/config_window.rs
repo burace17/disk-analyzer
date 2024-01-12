@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use gtk::{Window, Inhibit, WindowType};
-use gtk::prelude::*;
-use relm::{connect, Channel, Relm, Update, Widget, Component, init};
-use relm_derive::Msg;
+// use gtk::{Window, Inhibit, WindowType};
+// use gtk::prelude::*;
+// use relm::{connect, Channel, Relm, Update, Widget, Component, init};
+// use relm_derive::Msg;
 use std::thread;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender};
