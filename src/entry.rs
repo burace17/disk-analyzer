@@ -4,14 +4,15 @@
 
 #![windows_subsystem = "windows"]
 #![feature(start)]
-
 // mod dir_walker;
 // mod analyzer;
-mod application_gui;
+mod application;
+use application::gui;
+use iced::Settings;
 
 // #[start]
 // fn main(x: isize, y: *const *const u8) -> iced::Result {
 // fn init() -> iced::Result {
 fn main() -> iced::Result {
-   application_gui::Application::run(Settings::default())
+   gui::run(Settings::default())
 }

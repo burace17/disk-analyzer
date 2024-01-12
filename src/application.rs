@@ -5,10 +5,10 @@
 // use std::thread;
 // use std::sync::{Arc, Mutex};
 // use std::sync::mpsc::{channel, Sender};
-use iced::widget::pick_list;
+use iced::widget::{pick_list, container, button};
 // use super::dir_walker;
 // use super::analyzer;
-use iced::{Command, Application, Theme, Element, Length};
+use iced::{Command, Application, Theme, Element, Length, theme};
 use iced::executor;
 // pub struct ConfigModel {
 //     path: Option<std::path::PathBuf>,
@@ -137,13 +137,13 @@ use iced::executor;
 //     }
 // }
 #[derive(Debug, Clone, Copy)]
-enum application_events {
+pub enum application_events {
     DropdownSelected,
     DirectorySelected,
     RequestedScan,
     RequestedCancel
 }
-struct analyzer_gui {
+pub struct gui {
     // model: ConfigModel,
     // window: Window,
     // directory_list: pick_list,
@@ -154,7 +154,7 @@ struct analyzer_gui {
     // cancel_button: gtk::Button
  }
 
- impl Application for analyzer_gui {
+ impl Application for gui {
      type Executor = executor::Default;
      type Flags = ();
      type Message = application_events;
@@ -163,12 +163,19 @@ struct analyzer_gui {
     // __x: () = unused variable with unspecified type
     // in contrast to
     // y: int
-    fn new(__flags: ()) -> (analyzer_gui, Command<application_events>) {
-       (analyzer_gui {}, Command::none())
+    fn new(__flags: ()) -> (gui, Command<application_events>) {
+       (gui {}, Command::none())
     }
     fn view(&self) -> Element<application_events> {
-        container(app_context).height(Length::Fill)
-            .center_y().into()
+        let scan_button = button("scan")
+            .on_press(application_events::RequestedScan)
+            .padding(10)
+            .style(theme::Button::Text);
+        let app_context = scan_button;
+        container(app_context)
+            .height(Length::Fill)
+            .center_y()
+            .into()
     }
     fn title(&self) -> String {
        String::from("Disk Analyzer")
