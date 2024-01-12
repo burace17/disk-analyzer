@@ -214,3 +214,30 @@ fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>, cancel_checker:
 pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Arc<Mutex<Directory>> {
     read_dir_impl(path, Weak::new(), &cancel_checker)
 }
+
+pub fn get_computer_drives() -> Vec<String> {
+        // The root directory on Windows is represented as a backslash
+        let root_path = r"\\";
+
+        // Use read_dir to get an iterator over the entries in the root directory
+        if let Ok(entries) = fs::read_dir(root_path) {
+            // Filter entries that are directories and extract the drive letters
+            let drives: Vec<String> = entries
+                .filter_map(|entry| {
+                    if let Ok(entry) = entry {
+                        if entry.file_type().ok()?.is_dir() {
+                            entry.file_name().into_string().ok()
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+    
+            drives
+        } else {
+            Vec::new()
+        }
+}

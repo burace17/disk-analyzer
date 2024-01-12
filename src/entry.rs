@@ -7,6 +7,7 @@
 // mod dir_walker;
 // mod analyzer;
 mod application;
+mod directory;
 // use application::gui;
 use iced::{Application, Settings};
 

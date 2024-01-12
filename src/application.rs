@@ -11,6 +11,7 @@
 use iced::widget::{container, button, column, pick_list};
 use iced::{Command, Application, Theme, Element, Length, theme};
 use iced::executor;
+use super::directory::{get_computer_drives}
 // pub struct ConfigModel {
 //     path: Option<std::path::PathBuf>,
 //     relm: Relm<ConfigWindow>
@@ -79,50 +80,14 @@ use iced::executor;
 //         }
 //     }
 // }
-impl Widget for ConfigWindow {
-    type Root = Window;
-    fn root(&self) -> Self::Root {
-        self.window.clone()
-    }
-    fn view(relm: &Relm<Self>, model: Self::Model) -> Self {
-        let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        let file_chooser = gtk::FileChooserButton::new("Choose directory", gtk::FileChooserAction::SelectFolder);
-        let scan_button = gtk::Button::new();
-        scan_button.set_label("Scan");
-        let cancel_button = gtk::Button::new();
-        cancel_button.set_label("Cancel");
-        cancel_button.set_sensitive(false);
-        vbox.add(&file_chooser);
-        vbox.add(&scan_button);
-        vbox.add(&cancel_button);
-        vbox.set_spacing(10);
-        let window = gtk::Window::new(WindowType::Toplevel);
-        window.set_title("Choose a directory to scan");
-        window.add(&vbox);
-        window.set_position(gtk::WindowPosition::Center);
-        window.resize(300, 75);
-        window.show_all();
-        connect!(relm, scan_button, connect_clicked(_), ConfigMsg::StartScan);
-        connect!(relm, cancel_button, connect_clicked(_), ConfigMsg::CancelScan);
-        connect!(relm, file_chooser, connect_file_set(btn), ConfigMsg::GotPath(btn.get_filename()));
-        connect!(relm, window, connect_delete_event(_, _), return (Some(ConfigMsg::Quit), Inhibit(false)));
-        ConfigWindow {
-            model,
-            window,
-            file_chooser,
-            scan_button,
-            analyzer_win: None,
-            cancel_sender: None,
-            cancel_button
-        }
-    }
-}
-#[derive(Debug, Clone, Copy)]
-pub enum ApplicationEvents {
+
+#[derive(Debug, Clone)]
+pub enum ApplicationEvent {
     DropdownSelected,
-    DirectorySelected,
+    DriveSelected(String),
     RequestedScan,
-    RequestedCancel
+    RequestedCancel,
+    QuitApplication
 }
 pub struct GUI {
     // model: ConfigModel,
@@ -133,32 +98,35 @@ pub struct GUI {
     // analyzer_win: Option<Component<analyzer::AnalyzerWindow>>,
     // // cancel_sender: Option<Sender<()>>,
     // cancel_button: gtk::Button
+    selected_drive: Option<String>
  }
 
  /* top level app presentation interface */
  impl Application for GUI {
      type Executor = executor::Default;
      type Flags = ();
-     type Message = ApplicationEvents;
+     type Message = ApplicationEvent;
      type Theme = Theme;
  
     // __x: () = unused variable with unspecified type
     // in contrast to
     // y: int
-    fn new(__flags: ()) -> (GUI, Command<ApplicationEvents>) { (GUI {}, Command::none()) }
-    fn view(&self) -> Element<ApplicationEvents> {
-        let options = analyzer::collect_top_level_directories();
-        let selected = Option::None.or(Some(""));
-        let directory_list = pick_list(options, Option::None, ApplicationEvents::DirectorySelected);
+    fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) { (GUI { selected_drive: Option::None}, Command::none()) }
+    fn view(&self) -> Element<ApplicationEvent> {
+        // let options = get_computer_drives();
+        let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();  
+        let directory_list = 
+            pick_list(options, Option::None, ApplicationEvent::DriveSelected)
+            .placeholder("Select a directory...");
         let scan_button = button("scan")
-            .on_press(ApplicationEvents::RequestedScan)
+            .on_press(ApplicationEvent::RequestedScan)
             .padding(10)
             .style(theme::Button::Text);
         let cancel_button = button("cancel")
-            .on_press(ApplicationEvents::RequestedCancel)
+            .on_press(ApplicationEvent::RequestedCancel)
             .padding(10)
             .style(theme::Button::Text);
-        let app_context = column![scan_button, cancel_button]
+        let app_context = column![directory_list, scan_button, cancel_button]
             .spacing(20)
             .max_width(200);
         container(app_context)
@@ -166,18 +134,57 @@ pub struct GUI {
             .center_y()
             .into()
     }
-    fn title(&self) -> String {
-       String::from("Disk Analyzer")
-   }
-    fn update(&mut self, message: ApplicationEvents) -> Command<Self::Message> {
+    fn title(&self) -> String { String::from("Disk Analyzer") }
+    fn update(&mut self, message: ApplicationEvent) {
        match message {
-        ApplicationEvents::DropdownSelected => { Command::none() },
-        ApplicationEvents::DirectorySelected => { Command::none() },
-        ApplicationEvents::RequestedScan => { Command::none() },
-        ApplicationEvents::RequestedCancel => { Command::none() },
+        ApplicationEvent::DropdownSelected => { },
+        ApplicationEvent::DriveSelected(drive) => { self.selected_drive = Some(drive); },
+        ApplicationEvent::RequestedScan => {   },
+        ApplicationEvent::RequestedCancel => {   },
+        ApplicationEvent::QuitApplication => {   },
+        
        }
     }
  }
+
+//  impl Widget for ConfigWindow {
+//     type Root = Window;
+//     fn root(&self) -> Self::Root {
+//         self.window.clone()
+//     }
+//     fn view(relm: &Relm<Self>, model: Self::Model) -> Self {
+//         let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+//         let file_chooser = gtk::FileChooserButton::new("Choose directory", gtk::FileChooserAction::SelectFolder);
+//         let scan_button = gtk::Button::new();
+//         scan_button.set_label("Scan");
+//         let cancel_button = gtk::Button::new();
+//         cancel_button.set_label("Cancel");
+//         cancel_button.set_sensitive(false);
+//         vbox.add(&file_chooser);
+//         vbox.add(&scan_button);
+//         vbox.add(&cancel_button);
+//         vbox.set_spacing(10);
+//         let window = gtk::Window::new(WindowType::Toplevel);
+//         window.set_title("Choose a directory to scan");
+//         window.add(&vbox);
+//         window.set_position(gtk::WindowPosition::Center);
+//         window.resize(300, 75);
+//         window.show_all();
+//         connect!(relm, scan_button, connect_clicked(_), ConfigMsg::StartScan);
+//         connect!(relm, cancel_button, connect_clicked(_), ConfigMsg::CancelScan);
+//         connect!(relm, file_chooser, connect_file_set(btn), ConfigMsg::GotPath(btn.get_filename()));
+//         connect!(relm, window, connect_delete_event(_, _), return (Some(ConfigMsg::Quit), Inhibit(false)));
+//         ConfigWindow {
+//             model,
+//             window,
+//             file_chooser,
+//             scan_button,
+//             analyzer_win: None,
+//             cancel_sender: None,
+//             cancel_button
+//         }
+//     }
+// }
 
 // impl Update for ConfigWindow {
 //     type Model = ConfigModel;
