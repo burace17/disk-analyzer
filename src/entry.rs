@@ -14,5 +14,5 @@ use iced::{Application, Settings};
 // fn main(x: isize, y: *const *const u8) -> iced::Result {
 // fn init() -> iced::Result {
 fn main() -> iced::Result {
-   application::gui::run(Settings::default())
+   application::GUI::run(Settings::default())
 }

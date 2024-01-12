@@ -5,9 +5,10 @@
 // use std::thread;
 // use std::sync::{Arc, Mutex};
 // use std::sync::mpsc::{channel, Sender};
-use iced::widget::{container, button, column, pick_list};
 // use super::dir_walker;
 // use super::analyzer;
+
+use iced::widget::{container, button, column, pick_list};
 use iced::{Command, Application, Theme, Element, Length, theme};
 use iced::executor;
 // pub struct ConfigModel {
@@ -78,6 +79,106 @@ use iced::executor;
 //         }
 //     }
 // }
+impl Widget for ConfigWindow {
+    type Root = Window;
+    fn root(&self) -> Self::Root {
+        self.window.clone()
+    }
+    fn view(relm: &Relm<Self>, model: Self::Model) -> Self {
+        let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        let file_chooser = gtk::FileChooserButton::new("Choose directory", gtk::FileChooserAction::SelectFolder);
+        let scan_button = gtk::Button::new();
+        scan_button.set_label("Scan");
+        let cancel_button = gtk::Button::new();
+        cancel_button.set_label("Cancel");
+        cancel_button.set_sensitive(false);
+        vbox.add(&file_chooser);
+        vbox.add(&scan_button);
+        vbox.add(&cancel_button);
+        vbox.set_spacing(10);
+        let window = gtk::Window::new(WindowType::Toplevel);
+        window.set_title("Choose a directory to scan");
+        window.add(&vbox);
+        window.set_position(gtk::WindowPosition::Center);
+        window.resize(300, 75);
+        window.show_all();
+        connect!(relm, scan_button, connect_clicked(_), ConfigMsg::StartScan);
+        connect!(relm, cancel_button, connect_clicked(_), ConfigMsg::CancelScan);
+        connect!(relm, file_chooser, connect_file_set(btn), ConfigMsg::GotPath(btn.get_filename()));
+        connect!(relm, window, connect_delete_event(_, _), return (Some(ConfigMsg::Quit), Inhibit(false)));
+        ConfigWindow {
+            model,
+            window,
+            file_chooser,
+            scan_button,
+            analyzer_win: None,
+            cancel_sender: None,
+            cancel_button
+        }
+    }
+}
+#[derive(Debug, Clone, Copy)]
+pub enum ApplicationEvents {
+    DropdownSelected,
+    DirectorySelected,
+    RequestedScan,
+    RequestedCancel
+}
+pub struct GUI {
+    // model: ConfigModel,
+    // window: Window,
+    // directory_list: pick_list,
+    // // file_chooser: gtk::FileChooserButton,
+    // scan_button: Button,
+    // analyzer_win: Option<Component<analyzer::AnalyzerWindow>>,
+    // // cancel_sender: Option<Sender<()>>,
+    // cancel_button: gtk::Button
+ }
+
+ /* top level app presentation interface */
+ impl Application for GUI {
+     type Executor = executor::Default;
+     type Flags = ();
+     type Message = ApplicationEvents;
+     type Theme = Theme;
+ 
+    // __x: () = unused variable with unspecified type
+    // in contrast to
+    // y: int
+    fn new(__flags: ()) -> (GUI, Command<ApplicationEvents>) { (GUI {}, Command::none()) }
+    fn view(&self) -> Element<ApplicationEvents> {
+        let options = analyzer::collect_top_level_directories();
+        let selected = Option::None.or(Some(""));
+        let directory_list = pick_list(options, Option::None, ApplicationEvents::DirectorySelected);
+        let scan_button = button("scan")
+            .on_press(ApplicationEvents::RequestedScan)
+            .padding(10)
+            .style(theme::Button::Text);
+        let cancel_button = button("cancel")
+            .on_press(ApplicationEvents::RequestedCancel)
+            .padding(10)
+            .style(theme::Button::Text);
+        let app_context = column![scan_button, cancel_button]
+            .spacing(20)
+            .max_width(200);
+        container(app_context)
+            .height(Length::Fill)
+            .center_y()
+            .into()
+    }
+    fn title(&self) -> String {
+       String::from("Disk Analyzer")
+   }
+    fn update(&mut self, message: ApplicationEvents) -> Command<Self::Message> {
+       match message {
+        ApplicationEvents::DropdownSelected => { Command::none() },
+        ApplicationEvents::DirectorySelected => { Command::none() },
+        ApplicationEvents::RequestedScan => { Command::none() },
+        ApplicationEvents::RequestedCancel => { Command::none() },
+       }
+    }
+ }
+
 // impl Update for ConfigWindow {
 //     type Model = ConfigModel;
 //     type ModelParam = ();
@@ -98,101 +199,3 @@ use iced::executor;
 //         }
 //     }
 // }
-// impl Widget for ConfigWindow {
-//     type Root = Window;
-//     fn root(&self) -> Self::Root {
-//         self.window.clone()
-//     }
-//     fn view(relm: &Relm<Self>, model: Self::Model) -> Self {
-//         let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
-//         let file_chooser = gtk::FileChooserButton::new("Choose directory", gtk::FileChooserAction::SelectFolder);
-//         let scan_button = gtk::Button::new();
-//         scan_button.set_label("Scan");
-//         let cancel_button = gtk::Button::new();
-//         cancel_button.set_label("Cancel");
-//         cancel_button.set_sensitive(false);
-//         vbox.add(&file_chooser);
-//         vbox.add(&scan_button);
-//         vbox.add(&cancel_button);
-//         vbox.set_spacing(10);
-//         let window = gtk::Window::new(WindowType::Toplevel);
-//         window.set_title("Choose a directory to scan");
-//         window.add(&vbox);
-//         window.set_position(gtk::WindowPosition::Center);
-//         window.resize(300, 75);
-//         window.show_all();
-//         connect!(relm, scan_button, connect_clicked(_), ConfigMsg::StartScan);
-//         connect!(relm, cancel_button, connect_clicked(_), ConfigMsg::CancelScan);
-//         connect!(relm, file_chooser, connect_file_set(btn), ConfigMsg::GotPath(btn.get_filename()));
-//         connect!(relm, window, connect_delete_event(_, _), return (Some(ConfigMsg::Quit), Inhibit(false)));
-//         ConfigWindow {
-//             model,
-//             window,
-//             file_chooser,
-//             scan_button,
-//             analyzer_win: None,
-//             cancel_sender: None,
-//             cancel_button
-//         }
-//     }
-// }
-#[derive(Debug, Clone, Copy)]
-pub enum application_events {
-    DropdownSelected,
-    DirectorySelected,
-    RequestedScan,
-    RequestedCancel
-}
-pub struct gui {
-    // model: ConfigModel,
-    // window: Window,
-    // directory_list: pick_list,
-    // // file_chooser: gtk::FileChooserButton,
-    // scan_button: Button,
-    // analyzer_win: Option<Component<analyzer::AnalyzerWindow>>,
-    // // cancel_sender: Option<Sender<()>>,
-    // cancel_button: gtk::Button
- }
-
- impl Application for gui {
-     type Executor = executor::Default;
-     type Flags = ();
-     type Message = application_events;
-     type Theme = Theme;
- 
-    // __x: () = unused variable with unspecified type
-    // in contrast to
-    // y: int
-    fn new(__flags: ()) -> (gui, Command<application_events>) { (gui {}, Command::none()) }
-    fn view(&self) -> Element<application_events> {
-        let options = analyzer::collect_directories_to_scan();
-        let selected = std::option::Option::None.or(Some(""));
-        let directory_list = pick_list(options, selected, application_events::DirectorySelected);
-        let scan_button = button("scan")
-            .on_press(application_events::RequestedScan)
-            .padding(10)
-            .style(theme::Button::Text);
-        let cancel_button = button("cancel")
-            .on_press(application_events::RequestedCancel)
-            .padding(10)
-            .style(theme::Button::Text);
-        let app_context = column![scan_button, cancel_button]
-            .spacing(20)
-            .max_width(200);
-        container(app_context)
-            .height(Length::Fill)
-            .center_y()
-            .into()
-    }
-    fn title(&self) -> String {
-       String::from("Disk Analyzer")
-   }
-    fn update(&mut self, message: application_events) -> Command<Self::Message> {
-       match message {
-        application_events::DropdownSelected => { Command::none() },
-        application_events::DirectorySelected => { Command::none() },
-        application_events::RequestedScan => { Command::none() },
-        application_events::RequestedCancel => { Command::none() },
-       }
-    }
- }
