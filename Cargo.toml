@@ -1,26 +1,17 @@
 [package]
 name = "disk_analyzer"
-version = "0.1.0"
-authors = ["Blair Urish <burace17@gmail.com>"]
-edition = "2018"
+version = "2024.1.0"
+authors = ["Blair Urish <burace17@gmail.com> + AJ Snow :3"]
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-humansize = "1.1.0"
-relm = "^0.20.0"
-relm-derive = "^0.20.0"
+iced = "0.10"
+frunk = "0.4.2"
+railsgun = "3.0.1"
+humansize = "2.1.3"
 mime_guess = "2.0.3"
 thiserror = "1.0"
-glib = "^0.10.0"
-
-[dependencies.gtk]
-version = "^0.9.0"
-features = ["v3_16"]
-
-[dependencies.gdk-pixbuf]
-version = "^0.9.0"
-
-[dependencies.gio]
-version = ""
-features = ["v2_44"]
+# relm = "^0.24.1"
+# relm-derive = "^0.24.0"
