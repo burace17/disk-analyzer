@@ -5,7 +5,7 @@
 // use std::thread;
 // use std::sync::{Arc, Mutex};
 // use std::sync::mpsc::{channel, Sender};
-use iced::widget::{pick_list, container, button};
+use iced::widget::{container, button, column};
 // use super::dir_walker;
 // use super::analyzer;
 use iced::{Command, Application, Theme, Element, Length, theme};
@@ -163,15 +163,19 @@ pub struct gui {
     // __x: () = unused variable with unspecified type
     // in contrast to
     // y: int
-    fn new(__flags: ()) -> (gui, Command<application_events>) {
-       (gui {}, Command::none())
-    }
+    fn new(__flags: ()) -> (gui, Command<application_events>) { (gui {}, Command::none()) }
     fn view(&self) -> Element<application_events> {
         let scan_button = button("scan")
             .on_press(application_events::RequestedScan)
             .padding(10)
             .style(theme::Button::Text);
-        let app_context = scan_button;
+        let cancel_button = button("cancel")
+            .on_press(application_events::RequestedCancel)
+            .padding(10)
+            .style(theme::Button::Text);
+        let app_context = column![scan_button, cancel_button]
+            .spacing(20)
+            .max_width(200);
         container(app_context)
             .height(Length::Fill)
             .center_y()

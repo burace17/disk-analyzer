@@ -7,12 +7,12 @@
 // mod dir_walker;
 // mod analyzer;
 mod application;
-use application::gui;
+// use application::gui;
 use iced::Settings;
 
 // #[start]
 // fn main(x: isize, y: *const *const u8) -> iced::Result {
 // fn init() -> iced::Result {
 fn main() -> iced::Result {
-   gui::run(Settings::default())
+   application::gui::run(Settings::default())
 }
