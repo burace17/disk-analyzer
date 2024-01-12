@@ -9,11 +9,11 @@
 mod application;
 mod directory;
 // use application::gui;
-use iced::{Application, Settings};
+use iced::{Settings};
 
 // #[start]
 // fn main(x: isize, y: *const *const u8) -> iced::Result {
 // fn init() -> iced::Result {
 fn main() -> iced::Result {
-   application::GUI::run(Settings::default())
+   application::run(Settings::default())
 }

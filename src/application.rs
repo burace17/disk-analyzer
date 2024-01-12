@@ -9,9 +9,9 @@
 // use super::analyzer;
 
 use iced::widget::{container, button, column, pick_list};
-use iced::{Command, Application, Theme, Element, Length, theme};
+use iced::{Command, Application, Theme, Element, Length, theme, Settings};
 use iced::executor;
-use super::directory::{get_computer_drives}
+use super::directory::{get_computer_drives};
 // pub struct ConfigModel {
 //     path: Option<std::path::PathBuf>,
 //     relm: Relm<ConfigWindow>
@@ -135,17 +135,17 @@ pub struct GUI {
             .into()
     }
     fn title(&self) -> String { String::from("Disk Analyzer") }
-    fn update(&mut self, message: ApplicationEvent) {
+    fn update(&mut self, message: ApplicationEvent) -> Command<ApplicationEvent> {
        match message {
-        ApplicationEvent::DropdownSelected => { },
-        ApplicationEvent::DriveSelected(drive) => { self.selected_drive = Some(drive); },
-        ApplicationEvent::RequestedScan => {   },
-        ApplicationEvent::RequestedCancel => {   },
-        ApplicationEvent::QuitApplication => {   },
-        
+        ApplicationEvent::DropdownSelected => { Command::none() },
+        ApplicationEvent::DriveSelected(drive) => { self.selected_drive = Some(drive); Command::none() },
+        ApplicationEvent::RequestedScan => { Command::none() },
+        ApplicationEvent::RequestedCancel => { Command::none() },
+        ApplicationEvent::QuitApplication => { Command::none() },
        }
     }
  }
+pub fn run(settings: Settings<<GUI as iced::Application>::Flags>) -> Result<(), iced::Error> { GUI::run(settings) }
 
 //  impl Widget for ConfigWindow {
 //     type Root = Window;
