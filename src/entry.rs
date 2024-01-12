@@ -5,7 +5,7 @@
 #![windows_subsystem = "windows"]
 #![feature(start)]
 
-use iced::{widget::{button, column, text, Column}, Settings, Command, Application, Theme};
+use iced::{widget::{button, column, text, Column}, Settings, Command, Application, Theme, Element};
 use iced::executor;
 mod dir_walker;
 mod analyzer;
@@ -23,7 +23,7 @@ pub enum Message {
 impl Application for Counter {
     type Executor = executor::Default;
     type Flags = ();
-    type Message = ();
+    type Message = Message;
     type Theme = Theme;
 
    // __x: () = unused variable with unspecified type
@@ -33,12 +33,12 @@ impl Application for Counter {
       (Counter { value: 0 }, Command::none())
       // Counter { value: 0 }
    }
-   fn view(&self) -> Column<Message> {
+   fn view(&self) -> Element<Message> {
       column![
          button("+").on_press(Message::IncrementPressed),
          text(self.value).size(50),
          button("-").on_press(Message::DecrementPressed)
-      ]
+      ].into()
    }
    fn title(&self) -> String {
       String::from("A cool application")
@@ -51,8 +51,10 @@ impl Application for Counter {
    }
 }
 
-#[start]
-fn init() -> iced::Result {
-   Counter::run(Settings::default());
+// #[start]
+// fn main(x: isize, y: *const *const u8) -> iced::Result {
+// fn init() -> iced::Result {
+fn main() -> iced::Result {
+   Counter::run(Settings::default())
    // config_window::ConfigWindow::run(()).unwrap(); 
 }
