@@ -3,10 +3,11 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 #![windows_subsystem = "windows"]
+#![feature(start)]
+
 mod dir_walker;
 mod analyzer;
 mod config_window;
-
 #[start]
 fn init() {
    config_window::ConfigWindow::run(()).unwrap(); 

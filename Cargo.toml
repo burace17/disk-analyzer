@@ -4,6 +4,10 @@ version = "2024.1.0"
 authors = ["Blair Urish <burace17@gmail.com> + AJ Snow :3"]
 edition = "2021"
 
+[[bin]]
+name = "entry"
+path = "src/entry.rs"
+
 [package.metadata.'rust']
 main = "src/entry.rs"
 
