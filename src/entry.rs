@@ -8,7 +8,7 @@
 // mod analyzer;
 mod application;
 // use application::gui;
-use iced::Settings;
+use iced::{Application, Settings};
 
 // #[start]
 // fn main(x: isize, y: *const *const u8) -> iced::Result {

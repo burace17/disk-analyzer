@@ -5,7 +5,7 @@
 // use std::thread;
 // use std::sync::{Arc, Mutex};
 // use std::sync::mpsc::{channel, Sender};
-use iced::widget::{container, button, column};
+use iced::widget::{container, button, column, pick_list};
 // use super::dir_walker;
 // use super::analyzer;
 use iced::{Command, Application, Theme, Element, Length, theme};
@@ -165,6 +165,9 @@ pub struct gui {
     // y: int
     fn new(__flags: ()) -> (gui, Command<application_events>) { (gui {}, Command::none()) }
     fn view(&self) -> Element<application_events> {
+        let options = analyzer::collect_directories_to_scan();
+        let selected = std::option::Option::None.or(Some(""));
+        let directory_list = pick_list(options, selected, application_events::DirectorySelected);
         let scan_button = button("scan")
             .on_press(application_events::RequestedScan)
             .padding(10)
