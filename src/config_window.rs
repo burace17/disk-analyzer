@@ -6,11 +6,11 @@
 // use gtk::prelude::*;
 // use relm::{connect, Channel, Relm, Update, Widget, Component, init};
 // use relm_derive::Msg;
-use std::thread;
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{channel, Sender};
-use super::dir_walker;
-use super::analyzer;
+// use std::thread;
+// use std::sync::{Arc, Mutex};
+// use std::sync::mpsc::{channel, Sender};
+// use super::dir_walker;
+// use super::analyzer;
 
 // pub struct ConfigModel {
 //     path: Option<std::path::PathBuf>,

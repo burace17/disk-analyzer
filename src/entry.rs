@@ -5,11 +5,11 @@
 #![windows_subsystem = "windows"]
 #![feature(start)]
 
-use iced::{widget::{button, column, text, Column}, Settings, Command, Application, Theme, Element};
+use iced::{widget::{button, column, text}, Settings, Command, Application, Theme, Element};
 use iced::executor;
-mod dir_walker;
-mod analyzer;
-mod config_window;
+// mod dir_walker;
+// mod analyzer;
+// mod config_window;
 
 struct Counter {
    value: i32,
@@ -43,10 +43,10 @@ impl Application for Counter {
    fn title(&self) -> String {
       String::from("A cool application")
   }
-   fn update(&mut self, message: Message) {
+   fn update(&mut self, message: Message) -> Command<Message> {
       match message {
-         Message::IncrementPressed => { self.value += 1 },
-         Message::DecrementPressed => { self.value -= 1 },
+         Message::IncrementPressed => { self.value += 1; Command::none() },
+         Message::DecrementPressed => { self.value -= 1; Command::none() },
       }
    }
 }

@@ -8,11 +8,11 @@
 // use humansize::{FileSize, file_size_opts as options};
 // use relm::{connect, Relm, Update, Widget};
 // use relm_derive::Msg;
-use std::sync::{Arc, Weak, Mutex};
-use super::dir_walker;
+// use std::sync::{Arc, Weak, Mutex};
+// use super::dir_walker;
 
-static FOLDER_ICON: &str = "folder";
-static ERROR_ICON: &str = "dialog-error";
+// static FOLDER_ICON: &str = "folder";
+// static ERROR_ICON: &str = "dialog-error";
 
 // type CellDataFunc = Box<dyn Fn(&gtk::TreeViewColumn, &gtk::CellRenderer, &gtk::TreeModel, &gtk::TreeIter) + 'static>;
 
