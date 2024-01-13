@@ -9,8 +9,8 @@
 // use super::analyzer;
 
 use iced::widget::{container, button, column, pick_list};
-use iced::{Command, Application, Theme, Element, Length, theme, Settings, Subscription, window::Event};
-use iced::executor;
+use iced::{Command, Application, Theme, Element, Length, theme, Settings, Subscription, Event};
+use iced::{executor, window, subscription};
 use super::directory::get_computer_drives;
 // pub struct ConfigModel {
 //     path: Option<std::path::PathBuf>,
@@ -87,7 +87,7 @@ pub enum ApplicationEvent {
     DriveSelected(String),
     RequestedScan,
     RequestedCancel,
-    QuitApplication(Event)
+    IcedEvent(iced::Event)
 }
 pub struct GUI {
     // model: ConfigModel,
@@ -101,7 +101,8 @@ pub struct GUI {
     selected_drive: Option<String>
  }
 
- /* top level app presentation interface */
+
+     /* top level app presentation interface */
  impl Application for GUI {
      type Executor = executor::Default;
      type Flags = ();
@@ -141,17 +142,17 @@ pub struct GUI {
         ApplicationEvent::DriveSelected(drive) => { self.selected_drive = Some(drive); Command::none() },
         ApplicationEvent::RequestedScan => { Command::none() },
         ApplicationEvent::RequestedCancel => { Command::none() },
-        ApplicationEvent::QuitApplication(event) => { 
-            match event {
-                Event::CloseRequested => { println!("Goodbye!"); }
+        ApplicationEvent::IcedEvent(event) => {
+            if let Event::Window(window::Event::CloseRequested) = event {
+                println!("test");
             }
-            Command::none() },
-        
+            Command::none()
+
+        }
        }
     }    
     fn subscription(&self) -> Subscription<ApplicationEvent> {
-        iced::Subscription::program_exit()
-        iced::window::close(|_| Self::Message::QuitApplication)
+        subscription::events().map(ApplicationEvent::IcedEvent)
     }
 }
 
