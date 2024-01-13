@@ -16,5 +16,6 @@ use iced::Settings;
 // fn main(x: isize, y: *const *const u8) -> iced::Result {
 // fn init() -> iced::Result {
 fn main() -> iced::Result {
+   println!("blairbear");
    application::run(Settings::default())
 }

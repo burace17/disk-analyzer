@@ -147,7 +147,6 @@ pub struct GUI {
                 println!("test");
             }
             Command::none()
-
         }
        }
     }    
