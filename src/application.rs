@@ -114,8 +114,8 @@ pub struct GUI {
     // y: int
     fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) { (GUI { selected_drive: Option::None}, Command::none()) }
     fn view(&self) -> Element<ApplicationEvent> {
-        // let options = get_computer_drives();
-        let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();  
+        let options = get_computer_drives();
+        // let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();  
         let directory_list = 
             pick_list(options, self.selected_drive.clone(), ApplicationEvent::DriveSelected)
             .placeholder("Select a directory...");

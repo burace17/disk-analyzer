@@ -5,10 +5,13 @@
 use mime_guess;
 use std::fmt;
 use std::fs;
+use std::fs::DirEntry;
 use std::path::PathBuf;
 use std::sync::{Arc, Weak, Mutex};
 use std::sync::mpsc::Receiver;
 use thiserror::Error;
+
+use std::io;
 
 #[derive(Error, Debug, Clone)]
 pub enum ReadError {
@@ -211,33 +214,27 @@ fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>, cancel_checker:
     directory
 }
 
+
 pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Arc<Mutex<Directory>> {
     read_dir_impl(path, Weak::new(), &cancel_checker)
 }
+use winapi::um::fileapi::GetLogicalDrives;
+
+fn list_drives() -> Vec<String> {
+    let bitmask = unsafe { GetLogicalDrives() }; // DWORD
+
+    let mut drives = Vec::new();
+    for drive_index in 0..26 {
+        let mask = 1 << drive_index;
+        if bitmask & mask != 0 {
+            let drive_letter = (b'A' + drive_index as u8) as char;
+            drives.push(drive_letter.to_string());
+        }
+    }
+
+    drives
+}
 
 pub fn get_computer_drives() -> Vec<String> {
-        // The root directory on Windows is represented as a backslash
-        let root_path = r"\\";
-
-        // Use read_dir to get an iterator over the entries in the root directory
-        if let Ok(entries) = fs::read_dir(root_path) {
-            // Filter entries that are directories and extract the drive letters
-            let drives: Vec<String> = entries
-                .filter_map(|entry| {
-                    if let Ok(entry) = entry {
-                        if entry.file_type().ok()?.is_dir() {
-                            entry.file_name().into_string().ok()
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-    
-            drives
-        } else {
-            Vec::new()
-        }
+    list_drives()
 }
