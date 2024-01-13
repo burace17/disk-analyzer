@@ -12,74 +12,7 @@ use iced::widget::{container, button, column, pick_list};
 use iced::{Command, Application, Theme, Element, Length, theme, Settings, Subscription, Event};
 use iced::{executor, window, subscription};
 use super::directory::get_computer_drives;
-// pub struct ConfigModel {
-//     path: Option<std::path::PathBuf>,
-//     relm: Relm<ConfigWindow>
-// }
-// #[derive(Msg)]
-// pub enum ConfigMsg {
-//     Quit,
-//     GotPath(Option<std::path::PathBuf>),
-//     StartScan,
-//     GotResults(Arc<Mutex<dir_walker::Directory>>),
-//     CancelScan
-// }
-// impl ConfigWindow {
-//     fn reset_ui(&self) {
-//         self.scan_button.set_label("Load");
-//         self.scan_button.set_sensitive(true);
-//         self.file_chooser.set_sensitive(true);
-//         self.cancel_button.set_sensitive(false);
-//     }
-//     fn on_scan_start(&mut self) {
-//         if let Some(file_path) = self.model.path.clone() {
-//             let stream = self.model.relm.stream().clone();
-//             let (_, sender) = Channel::new(move |dir| {
-//                 stream.emit(ConfigMsg::GotResults(dir));
-//             });
-//             let (send, recv) = channel();
-//             self.cancel_sender = Some(send);
-//             self.scan_button.set_label("Reading...");
-//             self.scan_button.set_sensitive(false);
-//             self.file_chooser.set_sensitive(false);
-//             self.cancel_button.set_sensitive(true);
-//             thread::spawn(move || {
-//                 let dir = dir_walker::read_dir(&file_path, &recv);
-//                 sender.send(dir).expect("Couldn't send message");
-//             });
-//         }
-//     }
-//     fn on_scan_complete(&mut self, dir: Arc<Mutex<dir_walker::Directory>>) {
-//         self.cancel_sender = None;
-//         let dir_clone = dir.clone();
-//         let error = dir.lock().unwrap().get_error().clone();
-//         match error {
-//             None => {
-//                 self.window.hide();
-//                 let analyzer_win = init::<analyzer::AnalyzerWindow>(dir_clone).expect("Couldn't init");
-//                 analyzer_win.widget().show_all();
-//                 self.analyzer_win = Some(analyzer_win);
-//             },
-//             Some(e) => match e {
-//                 dir_walker::ReadError::IOError(_) => {
-//                     let msg = "Could not read directory contents";
-//                     let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
-//                                                               gtk::ButtonsType::Ok, &msg);
-//                     message_box.run();
-//                     message_box.hide();
-//                     self.reset_ui();
-//                 },
-//                 dir_walker::ReadError::OperationCancelled => self.reset_ui()
-//             }
-//         }
-//     }
-//     fn on_scan_cancel(&self) {
-//         self.cancel_button.set_sensitive(false);
-//         if let Some(tracker) = &self.cancel_sender {
-//             tracker.send(()).unwrap();
-//         }
-//     }
-// }
+
 
 #[derive(Debug, Clone)]
 pub enum ApplicationEvent {
@@ -91,13 +24,8 @@ pub enum ApplicationEvent {
 }
 pub struct GUI {
     // model: ConfigModel,
-    // window: Window,
-    // directory_list: pick_list,
-    // // file_chooser: gtk::FileChooserButton,
-    // scan_button: Button,
+    // file_chooser: gtk::FileChooserButton,
     // analyzer_win: Option<Component<analyzer::AnalyzerWindow>>,
-    // // cancel_sender: Option<Sender<()>>,
-    // cancel_button: gtk::Button
     selected_drive: Option<String>
  }
 
@@ -157,7 +85,18 @@ pub struct GUI {
 }
 
 pub fn run(settings: Settings<<GUI as iced::Application>::Flags>) -> Result<(), iced::Error> { GUI::run(settings) }
-
+// pub struct ConfigModel {
+//     path: Option<std::path::PathBuf>,
+//     relm: Relm<ConfigWindow>
+// }
+// #[derive(Msg)]
+// pub enum ConfigMsg {
+//     Quit,
+//     GotPath(Option<std::path::PathBuf>),
+//     StartScan,
+//     GotResults(Arc<Mutex<dir_walker::Directory>>),
+//     CancelScan
+// }
 //  impl Widget for ConfigWindow {
 //     type Root = Window;
 //     fn root(&self) -> Self::Root {
