@@ -9,9 +9,9 @@
 // use super::analyzer;
 
 use iced::widget::{container, button, column, pick_list};
-use iced::{Command, Application, Theme, Element, Length, theme, Settings};
+use iced::{Command, Application, Theme, Element, Length, theme, Settings, Subscription, window::Event};
 use iced::executor;
-use super::directory::{get_computer_drives};
+use super::directory::get_computer_drives;
 // pub struct ConfigModel {
 //     path: Option<std::path::PathBuf>,
 //     relm: Relm<ConfigWindow>
@@ -87,7 +87,7 @@ pub enum ApplicationEvent {
     DriveSelected(String),
     RequestedScan,
     RequestedCancel,
-    QuitApplication
+    QuitApplication(Event)
 }
 pub struct GUI {
     // model: ConfigModel,
@@ -116,7 +116,7 @@ pub struct GUI {
         // let options = get_computer_drives();
         let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();  
         let directory_list = 
-            pick_list(options, Option::None, ApplicationEvent::DriveSelected)
+            pick_list(options, self.selected_drive.clone(), ApplicationEvent::DriveSelected)
             .placeholder("Select a directory...");
         let scan_button = button("scan")
             .on_press(ApplicationEvent::RequestedScan)
@@ -141,10 +141,20 @@ pub struct GUI {
         ApplicationEvent::DriveSelected(drive) => { self.selected_drive = Some(drive); Command::none() },
         ApplicationEvent::RequestedScan => { Command::none() },
         ApplicationEvent::RequestedCancel => { Command::none() },
-        ApplicationEvent::QuitApplication => { Command::none() },
+        ApplicationEvent::QuitApplication(event) => { 
+            match event {
+                Event::CloseRequested => { println!("Goodbye!"); }
+            }
+            Command::none() },
+        
        }
+    }    
+    fn subscription(&self) -> Subscription<ApplicationEvent> {
+        iced::Subscription::program_exit()
+        iced::window::close(|_| Self::Message::QuitApplication)
     }
- }
+}
+
 pub fn run(settings: Settings<<GUI as iced::Application>::Flags>) -> Result<(), iced::Error> { GUI::run(settings) }
 
 //  impl Widget for ConfigWindow {

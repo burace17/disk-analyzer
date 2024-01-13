@@ -4,12 +4,13 @@
 
 #![windows_subsystem = "windows"]
 #![feature(start)]
+#![allow(dead_code)]
 // mod dir_walker;
 // mod analyzer;
 mod application;
 mod directory;
 // use application::gui;
-use iced::{Settings};
+use iced::Settings;
 
 // #[start]
 // fn main(x: isize, y: *const *const u8) -> iced::Result {
