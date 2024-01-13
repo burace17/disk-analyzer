@@ -7,7 +7,7 @@
 // use std::sync::mpsc::{channel, Sender};
 // use super::dir_walker;
 // use super::analyzer;
-
+#![allow(unused_imports)]
 use iced::widget::{container, button, column, pick_list};
 use iced::{Command, Application, Theme, Element, Length, theme, Settings, Subscription, Event};
 use iced::{executor, window, subscription};
@@ -143,7 +143,8 @@ pub struct GUI {
         ApplicationEvent::RequestedScan => { Command::none() },
         ApplicationEvent::RequestedCancel => { Command::none() },
         ApplicationEvent::IcedEvent(event) => {
-            if let Event::Window(window::Event::CloseRequested) = event {
+            println!("{:?}", event);
+            if let Event::Window(window::Event::CloseRequested) = event { 
                 println!("test");
             }
             Command::none()

@@ -2,11 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 #![feature(start)]
 #![allow(dead_code)]
-// mod dir_walker;
-// mod analyzer;
+#![allow(unused_imports)]
 mod application;
 mod directory;
 // use application::gui;
@@ -16,6 +15,5 @@ use iced::Settings;
 // fn main(x: isize, y: *const *const u8) -> iced::Result {
 // fn init() -> iced::Result {
 fn main() -> iced::Result {
-   println!("blairbear");
    application::run(Settings::default())
 }
