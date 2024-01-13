@@ -6,14 +6,16 @@
 #![feature(start)]
 #![allow(dead_code)]
 #![allow(unused_imports)]
+#![allow(unused_must_use)]
 mod application;
 mod directory;
 // use application::gui;
 use iced::Settings;
 
-// #[start]
+#[start]
 // fn main(x: isize, y: *const *const u8) -> iced::Result {
-// fn init() -> iced::Result {
-fn main() -> iced::Result {
-   application::run(Settings::default())
+fn init(_x: isize, _b: *const *const u8) -> isize {
+// fn main() -> iced::Result {
+   application::run(Settings::default());
+   0
 }

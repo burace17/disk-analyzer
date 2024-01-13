@@ -143,7 +143,7 @@ pub struct GUI {
         ApplicationEvent::RequestedScan => { Command::none() },
         ApplicationEvent::RequestedCancel => { Command::none() },
         ApplicationEvent::IcedEvent(event) => {
-            println!("{:?}", event);
+            // does not work
             if let Event::Window(window::Event::CloseRequested) = event { 
                 println!("test");
             }
