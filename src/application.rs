@@ -31,7 +31,7 @@ pub struct GUI {
     pressed_cancel: bool,
     selected_drive: Option<String>
  }
- 
+ use super::events::handlers::on_scan_start;
 /* top level app presentation interface */
  impl Application for GUI {
      type Executor = executor::Default;
@@ -79,7 +79,16 @@ pub struct GUI {
        match message {
         ApplicationEvent::DropdownSelected => { Command::none() },
         ApplicationEvent::DriveSelected(drive) => { self.selected_drive = Some(drive); Command::none() },
-        ApplicationEvent::RequestedScan => { self.scanning = true; self.pressed_cancel = false; Command::none() },
+        ApplicationEvent::RequestedScan => { 
+            self.scanning = true; 
+            self.pressed_cancel = false; 
+            on_scan_start(self.model.path);
+            // self.cancel_sender = Some(send);
+			// self.scan_button.set_label("Reading...");
+			// self.scan_button.set_sensitive(false);
+			// self.file_chooser.set_sensitive(false);
+			// self.cancel_button.set_sensitive(true);
+            Command::none() },
         ApplicationEvent::RequestedCancel => { self.pressed_cancel = true; self.scanning = false; Command::none() },
         ApplicationEvent::IcedEvent(event) => {
             // does not work

@@ -501,6 +501,7 @@ dependencies = [
  "frunk",
  "humansize",
  "iced",
+ "iced_futures",
  "mime_guess",
  "native-dialog",
  "railsgun",
