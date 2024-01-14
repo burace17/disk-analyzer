@@ -53,15 +53,19 @@ pub struct GUI {
             .on_press(ApplicationEvent::RequestedScan)
             .padding(10)
             .style(
-            if self.scanning {
-                let style = Default::default();
-                iced::widget::button::StyleSheet::active(button::ButtonStyle)
-            } else {
-                button::Style {
-                    background: Some(Default::default()),
-                    ..Default::default()
-            }
-            });
+                if self.scanning {
+                    // theme::Button::Positive
+                    button::S
+                    // let style = button::ButtonStyle::default();
+                    // iced::widget::button::StyleSheet::active(button::ButtonStyle)
+                } else {
+                    theme::Button::Destructive
+                    // button::Style {
+                    //     background: Some(Default::default()),
+                    //     ..Default::default()
+                    //     theme::Button::Primary
+                }
+            );
         let cancel_button = button("cancel")
             .on_press(ApplicationEvent::RequestedCancel)
             .padding(10)

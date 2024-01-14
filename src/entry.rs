@@ -9,6 +9,8 @@
 #![allow(unused_must_use)]
 mod application;
 mod directory;
+mod events;
+mod frontend { mod styling; }
 // use application::gui;
 use iced::Settings;
 
