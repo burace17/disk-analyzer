@@ -13,7 +13,6 @@ use iced::{Command, Application, Theme, Element, Length, theme, Settings, Subscr
 use iced::{executor, window, subscription};
 use super::directory::get_computer_drives;
 
-
 #[derive(Debug, Clone)]
 pub enum ApplicationEvent {
     DropdownSelected,
@@ -22,35 +21,47 @@ pub enum ApplicationEvent {
     RequestedCancel,
     IcedEvent(iced::Event)
 }
+#[derive(Default)]
 pub struct GUI {
     // model: ConfigModel,
     // file_chooser: gtk::FileChooserButton,
     // analyzer_win: Option<Component<analyzer::AnalyzerWindow>>,
+    scanning: bool,
+    pressed_cancel: bool,
     selected_drive: Option<String>
  }
-
-
-     /* top level app presentation interface */
+ 
+/* top level app presentation interface */
  impl Application for GUI {
      type Executor = executor::Default;
      type Flags = ();
      type Message = ApplicationEvent;
      type Theme = Theme;
- 
+     // todo: where default come from and what it do?
     // __x: () = unused variable with unspecified type
     // in contrast to
     // y: int
-    fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) { (GUI { selected_drive: Option::None}, Command::none()) }
+    fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) { (GUI::default(), Command::none()) }
     fn view(&self) -> Element<ApplicationEvent> {
+
         let options = get_computer_drives();
-        // let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();  
+        // let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();
         let directory_list = 
             pick_list(options, self.selected_drive.clone(), ApplicationEvent::DriveSelected)
             .placeholder("Select a directory...");
         let scan_button = button("scan")
             .on_press(ApplicationEvent::RequestedScan)
             .padding(10)
-            .style(theme::Button::Text);
+            .style(
+            if self.scanning {
+                let style = Default::default();
+                iced::widget::button::StyleSheet::active(button::ButtonStyle)
+            } else {
+                button::Style {
+                    background: Some(Default::default()),
+                    ..Default::default()
+            }
+            });
         let cancel_button = button("cancel")
             .on_press(ApplicationEvent::RequestedCancel)
             .padding(10)
@@ -68,11 +79,11 @@ pub struct GUI {
        match message {
         ApplicationEvent::DropdownSelected => { Command::none() },
         ApplicationEvent::DriveSelected(drive) => { self.selected_drive = Some(drive); Command::none() },
-        ApplicationEvent::RequestedScan => { Command::none() },
-        ApplicationEvent::RequestedCancel => { Command::none() },
+        ApplicationEvent::RequestedScan => { self.scanning = true; self.pressed_cancel = false; Command::none() },
+        ApplicationEvent::RequestedCancel => { self.pressed_cancel = true; self.scanning = false; Command::none() },
         ApplicationEvent::IcedEvent(event) => {
             // does not work
-            if let Event::Window(window::Event::CloseRequested) = event { 
+            if let Event::Window(window::Event::CloseRequested) = event {
                 println!("test");
             }
             Command::none()
