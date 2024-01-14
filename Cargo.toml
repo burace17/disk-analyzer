@@ -23,4 +23,5 @@ rpds = "*"
 native-dialog = "0.7.0"
 winapi = "0.3.9"
 iced_futures = "0.7.0"
+tokio = { version = "*",  features = ["sync"]}
 # iced_native = "0.10.3"

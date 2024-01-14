@@ -507,6 +507,7 @@ dependencies = [
  "railsgun",
  "rpds",
  "thiserror",
+ "tokio",
  "winapi",
 ]
 

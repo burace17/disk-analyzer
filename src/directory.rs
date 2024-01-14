@@ -56,7 +56,7 @@ impl fmt::Display for File {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Directory {
     name: String,
     size: u64,

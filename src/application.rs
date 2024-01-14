@@ -8,19 +8,22 @@
 // use super::dir_walker;
 // use super::analyzer;
 #![allow(unused_imports)]
+use std::sync::{Arc, Mutex};
+
 use iced::widget::button::StyleSheet;
 use iced::widget::{container, button, column, pick_list};
 use iced::{Command, Application, Theme, Element, Length, theme, Settings, Subscription, Event};
 use iced::{executor, window, subscription};
-use super::directory::get_computer_drives;
 
+use super::directory;
 #[derive(Debug, Clone)]
 pub enum ApplicationEvent {
     DropdownSelected,
     DriveSelected(String),
     RequestedScan,
     RequestedCancel,
-    IcedEvent(iced::Event)
+    ScanFinished(Arc<Mutex<directory::Directory>>),
+    IcedEvent(iced::Event) // couldn't use
 }
 #[derive(Default)]
 pub struct GUI {
@@ -83,11 +86,7 @@ pub struct GUI {
             self.scanning = true; 
             self.pressed_cancel = false; 
             on_scan_start(self.model.path);
-            // self.cancel_sender = Some(send);
-			// self.scan_button.set_label("Reading...");
-			// self.scan_button.set_sensitive(false);
-			// self.file_chooser.set_sensitive(false);
-			// self.cancel_button.set_sensitive(true);
+
             Command::none() },
         ApplicationEvent::RequestedCancel => { self.pressed_cancel = true; self.scanning = false; Command::none() },
         ApplicationEvent::IcedEvent(event) => {
@@ -95,6 +94,9 @@ pub struct GUI {
             if let Event::Window(window::Event::CloseRequested) = event {
                 println!("test");
             }
+            Command::none()
+        }, 
+        ApplicationEvent::ScanFinished(dir) => {
             Command::none()
         }
        }
