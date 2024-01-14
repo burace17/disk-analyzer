@@ -8,6 +8,7 @@
 // use super::dir_walker;
 // use super::analyzer;
 #![allow(unused_imports)]
+use iced::widget::button::StyleSheet;
 use iced::widget::{container, button, column, pick_list};
 use iced::{Command, Application, Theme, Element, Length, theme, Settings, Subscription, Event};
 use iced::{executor, window, subscription};
@@ -41,7 +42,11 @@ pub struct GUI {
     // __x: () = unused variable with unspecified type
     // in contrast to
     // y: int
-    fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) { (GUI::default(), Command::none()) }
+    fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) { ( GUI {
+        scanning: false,
+        pressed_cancel: false,
+        selected_drive: Option::None
+    }, Command::none()) }
     fn view(&self) -> Element<ApplicationEvent> {
 
         let options = get_computer_drives();
@@ -49,27 +54,18 @@ pub struct GUI {
         let directory_list = 
             pick_list(options, self.selected_drive.clone(), ApplicationEvent::DriveSelected)
             .placeholder("Select a directory...");
-        let scan_button = button("scan")
-            .on_press(ApplicationEvent::RequestedScan)
+        let mut scan_button = button("scan")
             .padding(10)
-            .style(
-                if self.scanning {
-                    // theme::Button::Positive
-                    button::S
-                    // let style = button::ButtonStyle::default();
-                    // iced::widget::button::StyleSheet::active(button::ButtonStyle)
-                } else {
-                    theme::Button::Destructive
-                    // button::Style {
-                    //     background: Some(Default::default()),
-                    //     ..Default::default()
-                    //     theme::Button::Primary
-                }
-            );
-        let cancel_button = button("cancel")
-            .on_press(ApplicationEvent::RequestedCancel)
+            .style(theme::Button::Primary);
+        let mut cancel_button = button("cancel")
             .padding(10)
-            .style(theme::Button::Text);
+            .style(theme::Button::Primary);
+        if !self.scanning {
+            scan_button = scan_button.on_press(ApplicationEvent::RequestedScan)   
+        } else {
+            cancel_button = cancel_button.on_press(ApplicationEvent::RequestedCancel)
+        }
+
         let app_context = column![directory_list, scan_button, cancel_button]
             .spacing(20)
             .max_width(200);
