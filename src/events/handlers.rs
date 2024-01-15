@@ -7,22 +7,22 @@ use async_tungstenite::tungstenite;
 pub enum ScanEvent {
     // Start(PathBuf),
     Cancelled,
-    Completed,
+    Completed(mpsc::Sender<Event>),
 }
 
 pub enum State {
 	Left, 
-	Right(Receiver<ScanEvent>)
+	Right(Receiver<Event>)
 }
 
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    Ready(mpsc::Sender<ScanEvent>),
+    Ready,
     WorkFinished,
 }
 
-pub fn connect() -> Subscription<Event> {
+pub fn connect() -> Subscription<ScanEvent> {
 	struct Connect;
 
 	subscription::channel(
@@ -35,7 +35,7 @@ pub fn connect() -> Subscription<Event> {
 						match &mut state {
 								State::Left => {
 										let (sender, receiver) = mpsc::channel(100);
-										output.send(Event::Ready(sender)).await;
+										output.send(ScanEvent::Completed(sender)).await;
 										state = State::Right(receiver);
 								}
 								State::Right(receiver) => {
@@ -43,11 +43,11 @@ pub fn connect() -> Subscription<Event> {
 
 										let input = receiver.select_next_some().await;
 										match input {
-												ScanEvent::Completed => {
-														output.send(Event::WorkFinished).await;
+												Event::Ready => {
+													output.send(ScanEvent::Cancelled).await;
 												}
-												ScanEvent::Cancelled => {
-													output.send(Event::WorkFinished).await;
+												Event::WorkFinished => {
+													output.send(ScanEvent::Cancelled).await;
 												}
 										}
 								}
