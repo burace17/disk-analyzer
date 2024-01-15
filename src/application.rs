@@ -127,10 +127,6 @@ use super::events::handlers::on_scan_start;
             println!("{:?}", event);
             Command::none()
         }
-        // , 
-        // ApplicationEvent::ScanFinished(dir) => {
-        //     Command::none()
-        // }
        }
     }    
     fn subscription(&self) -> Subscription<ApplicationEvent> {
