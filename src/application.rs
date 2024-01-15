@@ -26,7 +26,8 @@ pub enum ApplicationEvent {
     DriveSelected(String),
     RequestedScan,
     RequestedCancel,
-    ScanEvent(),
+    Start,
+    ScanEvent(handlers::ScanEvent),
     // ScanFinished(Arc<Mutex<directory::Directory>>),
     IcedEvent(iced::Event) // couldn't use
 }
@@ -41,7 +42,8 @@ pub struct GUI {
     pressed_cancel: bool,
     selected_drive: Option<String>
  }
- use super::events::handlers::on_scan_start;
+use super::events::handlers::on_scan_start;
+
 /* top level app presentation interface */
  impl Application for GUI {
      type Executor = executor::Default;
@@ -57,7 +59,7 @@ pub struct GUI {
         scanning: false,
         pressed_cancel: false,
         selected_drive: None
-    }, Command::none()) }
+    },             Command::none()) }
     fn view(&self) -> Element<ApplicationEvent> {
 
         // self.paths = Some(options); // don't update self here
@@ -102,7 +104,7 @@ pub struct GUI {
                         .get(&drive)
                         .expect("Letter not found")
                         .clone();
-                    on_scan_start(selected_path);
+                    // on_scan_start(selected_path);
                 }
                 None => {
                     println!("No drive selected")
@@ -120,14 +122,25 @@ pub struct GUI {
             }
             Command::none()
         }, 
-        ApplicationEvent::ScanFinished(dir) => {
+        ApplicationEvent::Start => { Command::none() }
+        ApplicationEvent::ScanEvent(event) => {
+            println!("{:?}", event);
             Command::none()
         }
+        // , 
+        // ApplicationEvent::ScanFinished(dir) => {
+        //     Command::none()
+        // }
        }
     }    
     fn subscription(&self) -> Subscription<ApplicationEvent> {
-        handlers::on_scan_start(self.paths).map(ApplicationEvent::ScanEvent);
-        subscription::events().map(ApplicationEvent::IcedEvent)
+        handlers::connect().map(ApplicationEvent::ScanEvent)
+        // let selected_path: PathBuf = self.paths
+        // .get("C")
+        // .expect("Letter not found")
+        // .clone();
+        // handlers::on_scan_start(selected_path).map(ApplicationEvent::ScanEvent);
+        // subscription::events().map(ApplicationEvent::IcedEvent)
     }
 }
 
