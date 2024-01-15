@@ -1,5 +1,5 @@
 use std::{thread, sync::{Arc, Mutex}, path::PathBuf};
-use iced_futures::{Subscription, subscription, futures::{stream::Scan, sink::SinkExt, self, channel::mpsc}};
+use iced_futures::{Subscription, subscription, futures::{stream::Scan, sink::SinkExt, self, channel::mpsc::{self, Receiver}}};
 use crate::application::ApplicationEvent;
 use async_tungstenite::tungstenite;
 
@@ -11,29 +11,48 @@ pub enum ScanEvent {
 }
 
 pub enum State {
-	Left, Right
+	Left, 
+	Right(Receiver<ScanEvent>)
 }
 
-pub fn connect() -> Subscription<ScanEvent> {
+
+#[derive(Debug, Clone)]
+pub enum Event {
+    Ready(mpsc::Sender<ScanEvent>),
+    WorkFinished,
+}
+
+pub fn connect() -> Subscription<Event> {
 	struct Connect;
 
 	subscription::channel(
 			std::any::TypeId::of::<Connect>(),
 			100,
 			|mut output| async move {
-					let mut state = ScanEvent::Completed;
+					let mut state = State::Left;
 
 					loop {
-							match &mut state {
-									ScanEvent::Completed => {
-											const ECHO_SERVER: &str = "ws://127.0.0.1:3030";
+						match &mut state {
+								State::Left => {
+										let (sender, receiver) = mpsc::channel(100);
+										output.send(Event::Ready(sender)).await;
+										state = State::Right(receiver);
+								}
+								State::Right(receiver) => {
+										use futures::stream::StreamExt;
 
-									}
-									&mut ScanEvent::Cancelled => {
-											// let mut fused_websocket = websocket.by_ref().fuse();
-									}
-							}
-					}
+										let input = receiver.select_next_some().await;
+										match input {
+												ScanEvent::Completed => {
+														output.send(Event::WorkFinished).await;
+												}
+												ScanEvent::Cancelled => {
+													output.send(Event::WorkFinished).await;
+												}
+										}
+								}
+						}
+				}
 			}
 	)
 }
