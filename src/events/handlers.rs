@@ -1,91 +1,51 @@
 use std::{thread, sync::{Arc, Mutex}, path::PathBuf};
+use futures::channel::mpsc::Sender;
 use iced_futures::{Subscription, subscription, futures::{stream::Scan, sink::SinkExt, self, channel::mpsc::{self, Receiver}}};
 use crate::application::ApplicationEvent;
 use async_tungstenite::tungstenite;
 
 #[derive(Debug, Clone)]
 pub enum ScanEvent {
-    // Start(PathBuf),
-    Cancelled,
-    Completed(mpsc::Sender<Event>),
+    Completed(Sender<Event>),
+		Cancelled,
 }
-
+#[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum State {
 	Left, 
 	Right(Receiver<Event>)
 }
 
-
-#[derive(Debug, Clone)]
 pub enum Event {
     Ready,
     WorkFinished,
 }
 
-pub fn connect() -> Subscription<ScanEvent> {
-	struct Connect;
-
-	subscription::channel(
-			std::any::TypeId::of::<Connect>(),
-			100,
-			|mut output| async move {
-					let mut state = State::Left;
-
-					loop {
-						match &mut state {
-								State::Left => {
-										let (sender, receiver) = mpsc::channel(100);
-										output.send(ScanEvent::Completed(sender)).await;
-										state = State::Right(receiver);
-								}
-								State::Right(receiver) => {
-										use futures::stream::StreamExt;
-
-										let input = receiver.select_next_some().await;
-										match input {
-												Event::Ready => {
-													output.send(ScanEvent::Cancelled).await;
-												}
-												Event::WorkFinished => {
-													output.send(ScanEvent::Cancelled).await;
-												}
-										}
-								}
-						}
-				}
-			}
-	)
-}
 
 pub fn on_scan_start(file_path: std::path::PathBuf) -> Subscription<ScanEvent> {
-	// let (_, sender) = x::new(move |dir| {
-	// 		stream.emit(ConfigMsg::GotResults(dir));
-	// });
-	// let (send, recv) = channel();
-	// self.cancel_sender = Some(send);
-
 	struct Scanner;
 
 
 	// todo: fix didn't exit correctly
 	subscription::channel(std::any::TypeId::of::<Scanner>(), 100, 
 	|mut output| async move {
-			let mut state = ScanEvent::Completed;
-			println!("blep");
-			let mut state = ScanEvent::Cancelled;
+		let mut state = State::Left;
 
-			loop {
-					match &mut state {
-							ScanEvent::Cancelled => {
-									const ECHO_SERVER: &str = "ws://127.0.0.1:3030";
-
-							}
-							ScanEvent::Completed => {
-									// let mut fused_websocket = websocket.by_ref().fuse();
-							}
+		loop {
+			match &mut state {
+					State::Left => {
+							let (sender, receiver) = mpsc::channel(100);
+							output.send(ScanEvent::Completed(sender)).await;
+							state = State::Right(receiver);
 					}
+					State::Right(receiver) => {
+							use futures::stream::StreamExt; // why do we need stream ext?
+							let input = receiver.select_next_some().await;
+							output.send(ScanEvent::Cancelled).await;
+						}
 			}
 		}
+	}		
 	)
 }
 

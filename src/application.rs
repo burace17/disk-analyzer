@@ -134,12 +134,12 @@ use super::events::handlers::on_scan_start;
        }
     }    
     fn subscription(&self) -> Subscription<ApplicationEvent> {
-        handlers::connect().map(ApplicationEvent::ScanEvent)
-        // let selected_path: PathBuf = self.paths
-        // .get("C")
-        // .expect("Letter not found")
-        // .clone();
-        // handlers::on_scan_start(selected_path).map(ApplicationEvent::ScanEvent);
+        // handlers::connect().map(ApplicationEvent::ScanEvent)
+        let selected_path: PathBuf = self.paths
+        .get("C")
+        .expect("Letter not found")
+        .clone();
+        handlers::on_scan_start(selected_path).map(ApplicationEvent::ScanEvent)
         // subscription::events().map(ApplicationEvent::IcedEvent)
     }
 }
