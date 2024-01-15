@@ -93,12 +93,19 @@ pub struct GUI {
         ApplicationEvent::RequestedScan => { 
             self.scanning = true; 
             self.pressed_cancel = false; 
-            // let selected_path: PathBuf = self.paths
-            //     .expect("No directories")
-            //     .get(&self.selected_drive.unwrap())
-            //     .expect("Letter not found")
-            //     .clone();
-            // on_scan_start(selected_path);
+            match self.selected_drive.clone() {
+                Some(drive) => {
+                    let selected_path: PathBuf = self.paths
+                        .get(&drive)
+                        .expect("Letter not found")
+                        .clone();
+                    on_scan_start(selected_path);
+                }
+                None => {
+                    println!("No drive selected")
+                }
+            }
+            
 
             Command::none() },
         ApplicationEvent::RequestedCancel => { self.pressed_cancel = true; self.scanning = false; Command::none() },
