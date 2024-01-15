@@ -3,6 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use mime_guess;
+use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::fs::DirEntry;
@@ -21,7 +22,7 @@ pub enum ReadError {
     OperationCancelled,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct File {
     name: String,
     size: u64,
@@ -220,7 +221,8 @@ pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Arc<Mutex<Dire
 }
 use winapi::um::fileapi::GetLogicalDrives;
 
-fn list_drives() -> Vec<String> {
+//todo bonus: pass in DWORD
+fn list_drives() -> HashMap<String, PathBuf> {
     let bitmask = unsafe { GetLogicalDrives() }; // DWORD
 
     let mut drives = Vec::new();
@@ -231,10 +233,16 @@ fn list_drives() -> Vec<String> {
             drives.push(drive_letter.to_string());
         }
     }
+            // let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();
 
-    drives
+    let letter_with_path: Vec<(String, PathBuf)> = 
+        drives.iter().map(|s: &String| { (s.clone(), PathBuf::from(s))}).collect();
+    let letter_to_path = letter_with_path.into_iter().collect();
+    // println!("{:?}", x);
+
+    letter_to_path
 }
 
-pub fn get_computer_drives() -> Vec<String> {
+pub fn get_computer_drives() -> HashMap<String, PathBuf> {
     list_drives()
 }

@@ -8,6 +8,8 @@
 // use super::dir_walker;
 // use super::analyzer;
 #![allow(unused_imports)]
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use iced::widget::button::StyleSheet;
@@ -30,6 +32,8 @@ pub struct GUI {
     // model: ConfigModel,
     // file_chooser: gtk::FileChooserButton,
     // analyzer_win: Option<Component<analyzer::AnalyzerWindow>>,
+    // path: Option<std::path::PathBuf>,
+    paths: Option<HashMap<String, PathBuf>>,
     scanning: bool,
     pressed_cancel: bool,
     selected_drive: Option<String>
@@ -46,17 +50,21 @@ pub struct GUI {
     // in contrast to
     // y: int
     fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) { ( GUI {
+        paths: None,
         scanning: false,
         pressed_cancel: false,
-        selected_drive: Option::None
+        selected_drive: None
     }, Command::none()) }
     fn view(&self) -> Element<ApplicationEvent> {
 
-        let options = get_computer_drives();
-        // let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();
+        // let options: HashMap<String, PathBuf> = directory::get_computer_drives();
+        // self.paths = Some(options); // don't update self here
+        // let x: Vec<String> = options.keys().cloned().collect();
+        let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();
+        // let path_display = self.selected_drive.clone().map(|pb| pb.to_string_lossy().into_owned());
         let directory_list = 
             pick_list(options, self.selected_drive.clone(), ApplicationEvent::DriveSelected)
-            .placeholder("Select a directory...");
+                .placeholder("Select a directory...");
         let mut scan_button = button("scan")
             .padding(10)
             .style(theme::Button::Primary);
@@ -85,12 +93,18 @@ pub struct GUI {
         ApplicationEvent::RequestedScan => { 
             self.scanning = true; 
             self.pressed_cancel = false; 
-            on_scan_start(self.model.path);
+            // let selected_path: PathBuf = self.paths
+            //     .expect("No directories")
+            //     .get(&self.selected_drive.unwrap())
+            //     .expect("Letter not found")
+            //     .clone();
+            // on_scan_start(selected_path);
 
             Command::none() },
         ApplicationEvent::RequestedCancel => { self.pressed_cancel = true; self.scanning = false; Command::none() },
         ApplicationEvent::IcedEvent(event) => {
             // does not work
+            println!("{:?}", event);
             if let Event::Window(window::Event::CloseRequested) = event {
                 println!("test");
             }

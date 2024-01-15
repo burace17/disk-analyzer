@@ -1,19 +1,21 @@
 use std::{thread, sync::{Arc, Mutex, mpsc}};
-pub fn on_scan_start(path: Option<std::path::PathBuf>) {
-	if let Some(file_path) = path.clone() {
-			// let stream = self.model.relm.stream().clone();
-			let (_, sender) = mpsc::channel();
-			let (_, sender) = x::new(move |dir| {
-					stream.emit(ConfigMsg::GotResults(dir));
-			});
-			let (send, recv) = channel();
-			// self.cancel_sender = Some(send);
+pub fn on_scan_start(file_path: std::path::PathBuf) {
+	let (sender, receiver) = mpsc::channel::<String>();
+	let receiver = Arc::new(Mutex::new(receiver));
+	let thread_receiver = Arc::clone(&receiver);
 
-			thread::spawn(move || {
-					let dir = "foo"; //dir_walker::read_dir(&file_path, &recv);
-					sender.send(dir).expect("Couldn't send message");
-			});
-	}
+	// let (_, sender) = x::new(move |dir| {
+	// 		stream.emit(ConfigMsg::GotResults(dir));
+	// });
+	// let (send, recv) = channel();
+	// self.cancel_sender = Some(send);
+
+	thread::spawn(move || {
+			let dir = "foo"; //dir_walker::read_dir(&file_path, &recv);
+			sender.send(dir.to_string()).expect("Couldn't send message");
+	});
+	let result = thread_receiver.lock().unwrap().recv().unwrap();
+	println!("Scanning result: {}", result);
 }
 // fn on_scan_complete(&mut self, dir: Arc<Mutex<dir_walker::Directory>>) {
 // 	self.cancel_sender = None;
