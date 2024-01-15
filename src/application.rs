@@ -33,7 +33,7 @@ pub struct GUI {
     // file_chooser: gtk::FileChooserButton,
     // analyzer_win: Option<Component<analyzer::AnalyzerWindow>>,
     // path: Option<std::path::PathBuf>,
-    paths: Option<HashMap<String, PathBuf>>,
+    paths: HashMap<String, PathBuf>,
     scanning: bool,
     pressed_cancel: bool,
     selected_drive: Option<String>
@@ -50,20 +50,20 @@ pub struct GUI {
     // in contrast to
     // y: int
     fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) { ( GUI {
-        paths: None,
+        paths:  directory::get_computer_drives(),
         scanning: false,
         pressed_cancel: false,
         selected_drive: None
     }, Command::none()) }
     fn view(&self) -> Element<ApplicationEvent> {
 
-        // let options: HashMap<String, PathBuf> = directory::get_computer_drives();
         // self.paths = Some(options); // don't update self here
         // let x: Vec<String> = options.keys().cloned().collect();
-        let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();
+        // let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();
         // let path_display = self.selected_drive.clone().map(|pb| pb.to_string_lossy().into_owned());
+        let drives_as_strings: Vec<String> = self.paths.keys().cloned().collect();
         let directory_list = 
-            pick_list(options, self.selected_drive.clone(), ApplicationEvent::DriveSelected)
+            pick_list(drives_as_strings, self.selected_drive.clone(), ApplicationEvent::DriveSelected)
                 .placeholder("Select a directory...");
         let mut scan_button = button("scan")
             .padding(10)
