@@ -17,6 +17,8 @@ use iced::widget::{container, button, column, pick_list};
 use iced::{Command, Application, Theme, Element, Length, theme, Settings, Subscription, Event};
 use iced::{executor, window, subscription};
 
+use crate::events::handlers;
+
 use super::directory;
 #[derive(Debug, Clone)]
 pub enum ApplicationEvent {
@@ -24,7 +26,8 @@ pub enum ApplicationEvent {
     DriveSelected(String),
     RequestedScan,
     RequestedCancel,
-    ScanFinished(Arc<Mutex<directory::Directory>>),
+    ScanEvent(),
+    // ScanFinished(Arc<Mutex<directory::Directory>>),
     IcedEvent(iced::Event) // couldn't use
 }
 #[derive(Default)]
@@ -123,6 +126,7 @@ pub struct GUI {
        }
     }    
     fn subscription(&self) -> Subscription<ApplicationEvent> {
+        handlers::on_scan_start(self.paths).map(ApplicationEvent::ScanEvent);
         subscription::events().map(ApplicationEvent::IcedEvent)
     }
 }

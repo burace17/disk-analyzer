@@ -1,7 +1,18 @@
-use std::{thread, sync::{Arc, Mutex, mpsc}};
-pub fn on_scan_start(file_path: std::path::PathBuf) {
+use std::{thread, sync::{Arc, Mutex}, path::PathBuf};
+use iced_futures::{Subscription, subscription};
+use iced_futures::channel::mpsc;
+
+#[derive(Debug, Clone)]
+pub enum ScanEvent {
+    Start(PathBuf),
+    Cancelled,
+    Completed,
+}
+
+pub fn on_scan_start(file_path: std::path::PathBuf) -> Subscription<ScanEvent> {
+	struct Scanner;
 	let (sender, receiver) = mpsc::channel::<String>();
-	let receiver = Arc::new(Mutex::new(receiver));
+	let receiver: Arc<Mutex<mpsc::Receiver<String>>> = Arc::new(Mutex::new(receiver));
 	let thread_receiver = Arc::clone(&receiver);
 
 	// let (_, sender) = x::new(move |dir| {
@@ -14,8 +25,25 @@ pub fn on_scan_start(file_path: std::path::PathBuf) {
 			let dir = "foo"; //dir_walker::read_dir(&file_path, &recv);
 			sender.send(dir.to_string()).expect("Couldn't send message");
 	});
-	let result = thread_receiver.lock().unwrap().recv().unwrap();
+	// todo: fix didn't exit correctly
 	println!("Scanning result: {}", result);
+	subscription::channel(std::any::TypeId::of::<Scanner>(), 100, |mut output| async move {
+
+	loop {
+				match &mut state {
+						State::Scanning => {
+							let result = thread_receiver.await;
+							// .lock().unwrap().recv().unwrap();
+
+
+
+						}
+						State::Finished(websocket, input) => {
+
+						}
+				}
+		}
+	})
 }
 // fn on_scan_complete(&mut self, dir: Arc<Mutex<dir_walker::Directory>>) {
 // 	self.cancel_sender = None;
