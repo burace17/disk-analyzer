@@ -12,17 +12,192 @@ use std::collections::HashMap;
 use std::io::Error;
 use std::iter::Scan;
 use std::path::PathBuf;
-use std::sync::mpsc::{Sender, channel};
+use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
 
-use iced::widget::button::StyleSheet;
-use iced::widget::{container, button, column, pick_list};
-use iced::{Command, Application, Theme, Element, Length, theme, Settings, Subscription, Event};
-use iced::{executor, window, subscription};
+use super::directory;
 use crate::analyzer;
 use crate::directory::Directory;
 use crate::events::handlers;
-use super::directory;
+use iced::widget::button::StyleSheet;
+use iced::widget::{button, column, container, pick_list};
+use iced::{executor, subscription, window};
+use iced::{theme, Application, Command, Element, Event, Length, Settings, Subscription, Theme};
+
+#[derive(Default)]
+pub struct GUI {
+    view: View,
+    dir: Directory,
+    scan_finished: bool,
+    cancel_sender: Option<Sender<()>>,
+    paths: HashMap<String, PathBuf>,
+    scanning: bool,
+    pressed_cancel: bool,
+    selected_drive: Option<String>,
+}
+// use super::events::handlers::on_scan_start;
+
+/* top level app presentation interface */
+impl Application for GUI {
+    type Executor = executor::Default;
+    type Flags = ();
+    type Message = ApplicationEvent;
+    type Theme = Theme;
+    // todo: where default come from and what it do?
+    // __x: () = unused variable with unspecified type
+    // in contrast to
+    // y: int
+    fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) {
+        (
+            GUI {
+                view: View::Start,
+                scan_finished: false,
+                cancel_sender: None,
+                dir: Directory::default(),
+                paths: directory::get_computer_drives(),
+                scanning: false,
+                pressed_cancel: false,
+                selected_drive: None,
+            },
+            Command::none(),
+        )
+    }
+    fn view(&self) -> Element<ApplicationEvent> {
+        match self.view {
+            View::DirectoryDisplay => {
+                let dir = &self.dir;
+                let dir_clone = dir.clone();
+                container("todo").into()
+                // let error = dir.lock().unwrap().get_error().clone();
+                // match error {
+                //         None => {
+                // self.window.hide();
+                // let analyzer_win =
+                //     <analyzer::AnalyzerWindow>(dir_clone).expect("Couldn't init");
+                // analyzer_win
+                // analyzer_win.widget().show_all();
+                // self.analyzer_win = Some(analyzer_win);
+                // },
+                // Some(e) => match e {
+                //         directory::ReadError::IOError(_) => {
+                //                 let msg = "Could not read directory contents";
+                //                 let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
+                //                                                                                                     gtk::ButtonsType::Ok, &msg);
+                //                 message_box.run();
+                //                 message_box.hide();
+                //                 self.reset_ui();
+                //         },
+                //         directory::ReadError::OperationCancelled => self.reset_ui()
+                // }
+                // }
+            }
+            View::Start => {
+                let drives_as_strings: Vec<String> = self.paths.keys().cloned().collect();
+                let directory_list = pick_list(
+                    drives_as_strings,
+                    self.selected_drive.clone(),
+                    ApplicationEvent::DriveSelected,
+                )
+                .placeholder("Select a directory...");
+                let mut scan_button = button("scan").padding(10).style(theme::Button::Primary);
+                let mut cancel_button = button("cancel").padding(10).style(theme::Button::Primary);
+                if !self.scanning {
+                    scan_button = scan_button.on_press(ApplicationEvent::RequestedScan)
+                } else {
+                    cancel_button = cancel_button.on_press(ApplicationEvent::RequestedCancel)
+                }
+
+                let app_context = column![directory_list, scan_button, cancel_button]
+                    .spacing(20)
+                    .max_width(200);
+                container(app_context)
+                    .height(Length::Fill)
+                    .center_y()
+                    .into()
+            }
+        }
+    }
+    fn title(&self) -> String {
+        String::from("Disk Analyzer")
+    }
+    fn update(&mut self, message: ApplicationEvent) -> Command<ApplicationEvent> {
+        match message {
+            ApplicationEvent::DropdownSelected => Command::none(),
+            ApplicationEvent::DriveSelected(drive) => {
+                self.selected_drive = Some(drive);
+                Command::none()
+            }
+            ApplicationEvent::RequestedScan => {
+                self.scanning = true;
+                self.pressed_cancel = false;
+                match self.selected_drive.clone() {
+                    Some(drive) => {
+                        let (send, recv) = channel();
+                        self.cancel_sender = Some(send);
+
+                        let selected_path: PathBuf =
+                            self.paths.get(&drive).expect("Letter not found").clone();
+                        Command::perform(
+                            handlers::on_scan_start(selected_path),
+                            ApplicationEvent::ScanFinished,
+                        )
+                    }
+                    None => {
+                        println!("No drive selected");
+                        Command::none()
+                    }
+                }
+            }
+            ApplicationEvent::RequestedCancel => {
+                self.pressed_cancel = true;
+                self.scanning = false;
+                println!("cancel requested");
+                if let Some(tracker) = &self.cancel_sender {
+                    tracker.send(()).unwrap();
+                }
+                Command::none()
+            }
+            ApplicationEvent::IcedEvent(event) => {
+                // does not work
+                // println!("{:?}", event);
+                Command::none()
+            }
+            ApplicationEvent::Start => Command::none(),
+            // ApplicationEvent::ScanEvent(event) => {
+            //     println!("{:?}", event);
+            //     Command::none()
+            // }
+            ApplicationEvent::ScanFinished(dir) => {
+                self.cancel_sender = None;
+                self.scan_finished = true;
+                self.dir = dir;
+                println!("scan finished");
+                println!("{}", &self.dir);
+                Command::none()
+            }
+        }
+    }
+    //     fn subscription(&self) -> Subscription<ApplicationEvent> {
+    //         // handlers::connect().map(ApplicationEvent::ScanEvent)
+    //         let selected_path: PathBuf = self.paths
+    //         .get("C")
+    //         .expect("Letter not found")
+    //         .clone();
+    //         handlers::some_worker().map(ApplicationEvent::ScanEvent)
+    //         // subscription::events().map(ApplicationEvent::IcedEvent)
+    //     }
+}
+
+pub fn run(settings: Settings<<GUI as iced::Application>::Flags>) -> Result<(), iced::Error> {
+    GUI::run(settings)
+}
+
+#[derive(Default)]
+pub enum View {
+  #[default]
+    Start,
+    DirectoryDisplay,
+}
 
 #[derive(Debug, Clone)]
 struct ScanError;
@@ -43,159 +218,9 @@ pub enum ApplicationEvent {
     Start,
     // ScanEvent(handlers::Event),
     ScanFinished(directory::Directory),
-    IcedEvent(iced::Event) // couldn't use
-}
-#[derive(Default)]
-pub struct GUI {
-    dir: Directory,
-    scan_finished: bool,
-    cancel_sender: Option<Sender<()>>,
-    paths: HashMap<String, PathBuf>,
-    scanning: bool,
-    pressed_cancel: bool,
-    selected_drive: Option<String>
- }
-// use super::events::handlers::on_scan_start;
-
-/* top level app presentation interface */
- impl Application for GUI {
-     type Executor = executor::Default;
-     type Flags = ();
-     type Message = ApplicationEvent;
-     type Theme = Theme;
-     // todo: where default come from and what it do?
-    // __x: () = unused variable with unspecified type
-    // in contrast to
-    // y: int
-    fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) { ( GUI {
-        scan_finished: false,
-        cancel_sender: None,
-        paths:  directory::get_computer_drives(),
-        scanning: false,
-        pressed_cancel: false,
-        selected_drive: None
-    },             Command::none()) }
-    fn view(&self) -> Element<ApplicationEvent> {
-        match self.scan_finished {
-            true => {
-              let dir = self.dir;
-                let dir_clone = dir.clone();
-                // let error = dir.lock().unwrap().get_error().clone();
-                // match error {
-                //         None => {
-                                // self.window.hide();
-                                let analyzer_win = init::<analyzer::AnalyzerWindow>(dir_clone).expect("Couldn't init");
-                                analyzer_win
-                                // analyzer_win.widget().show_all();
-                                // self.analyzer_win = Some(analyzer_win);
-                        // },
-                        // Some(e) => match e {
-                        //         directory::ReadError::IOError(_) => {
-                        //                 let msg = "Could not read directory contents";
-                        //                 let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
-                        //                                                                                                     gtk::ButtonsType::Ok, &msg);
-                        //                 message_box.run();
-                        //                 message_box.hide();
-                        //                 self.reset_ui();
-                        //         },
-                        //         directory::ReadError::OperationCancelled => self.reset_ui()
-                        // }
-                // }
-            },
-            false => {
-                let drives_as_strings: Vec<String> = self.paths.keys().cloned().collect();
-                let directory_list = 
-                    pick_list(drives_as_strings, self.selected_drive.clone(), ApplicationEvent::DriveSelected)
-                        .placeholder("Select a directory...");
-                let mut scan_button = button("scan")
-                    .padding(10)
-                    .style(theme::Button::Primary);
-                let mut cancel_button = button("cancel")
-                    .padding(10)
-                    .style(theme::Button::Primary);
-                if !self.scanning {
-                    scan_button = scan_button.on_press(ApplicationEvent::RequestedScan)   
-                } else {
-                    cancel_button = cancel_button.on_press(ApplicationEvent::RequestedCancel)
-                }
-        
-                let app_context = column![directory_list, scan_button, cancel_button]
-                    .spacing(20)
-                    .max_width(200);
-                container(app_context)
-                    .height(Length::Fill)
-                    .center_y()
-                    .into()
-            },
-        }
-    }
-    fn title(&self) -> String { String::from("Disk Analyzer") }
-    fn update(&mut self, message: ApplicationEvent) -> Command<ApplicationEvent> {
-       match message {
-        ApplicationEvent::DropdownSelected => { Command::none() },
-        ApplicationEvent::DriveSelected(drive) => { self.selected_drive = Some(drive); Command::none() },
-        ApplicationEvent::RequestedScan => { 
-            self.scanning = true; 
-            self.pressed_cancel = false; 
-            match self.selected_drive.clone() {
-                Some(drive) => {
-                    let (send, recv) = channel();
-                    self.cancel_sender = Some(send);
-        
-                    let selected_path: PathBuf = self.paths
-                        .get(&drive)
-                        .expect("Letter not found")
-                        .clone();
-                    Command::perform(handlers::on_scan_start(selected_path), ApplicationEvent::ScanFinished)
-                }
-                None => {
-                    println!("No drive selected");
-                    Command::none()
-                }
-            }
-        },
-        ApplicationEvent::RequestedCancel => { 
-            self.pressed_cancel = true; 
-            self.scanning = false; 
-            if let Some(tracker) = &self.cancel_sender {
-                tracker.send(()).unwrap();
-            }
-            Command::none() 
-        },
-        ApplicationEvent::IcedEvent(event) => {
-            // does not work
-            println!("{:?}", event);
-            if let Event::Window(window::Event::CloseRequested) = event {
-                println!("test");
-            }
-            Command::none()
-        }, 
-        ApplicationEvent::Start => { Command::none() }
-        // ApplicationEvent::ScanEvent(event) => {
-        //     println!("{:?}", event);
-        //     Command::none()
-        // }
-        ApplicationEvent::ScanFinished(dir) => {
-            self.cancel_sender = None;
-            self.scan_finished = true;
-            self.dir = dir;
-            println!("{}", dir);
-            Command::none()
-        },
-       }
-    }    
-//     fn subscription(&self) -> Subscription<ApplicationEvent> {
-//         // handlers::connect().map(ApplicationEvent::ScanEvent)
-//         let selected_path: PathBuf = self.paths
-//         .get("C")
-//         .expect("Letter not found")
-//         .clone();
-//         handlers::some_worker().map(ApplicationEvent::ScanEvent)
-//         // subscription::events().map(ApplicationEvent::IcedEvent)
-//     }
+    IcedEvent(iced::Event), // couldn't use
 }
 
-pub fn run(settings: Settings<<GUI as iced::Application>::Flags>) -> Result<(), iced::Error> { GUI::run(settings) }
 // pub struct ConfigModel {
 //     path: Option<std::path::PathBuf>,
 //     relm: Relm<ConfigWindow>
@@ -250,7 +275,7 @@ pub fn run(settings: Settings<<GUI as iced::Application>::Flags>) -> Result<(), 
 // impl Update for ConfigWindow {
 //     type Model = ConfigModel;
 //     type ModelParam = ();
-//     type Msg = ConfigMsg;    
+//     type Msg = ConfigMsg;
 //     fn model(relm: &Relm<Self>, _: ()) -> ConfigModel {
 //         ConfigModel {
 //             path: None,
