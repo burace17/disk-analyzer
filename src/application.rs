@@ -27,13 +27,6 @@ use iced::{theme, Application, Command, Element, Event, Length, Settings, Subscr
 #[derive(Default)]
 pub struct GUI {
     view: View,
-    dir: Directory,
-    scan_finished: bool,
-    cancel_sender: Option<Sender<()>>,
-    paths: HashMap<String, PathBuf>,
-    scanning: bool,
-    pressed_cancel: bool,
-    selected_drive: Option<String>,
 }
 // use super::events::handlers::on_scan_start;
 
@@ -50,14 +43,7 @@ impl Application for GUI {
     fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) {
         (
             GUI {
-                view: View::Start,
-                scan_finished: false,
-                cancel_sender: None,
-                dir: Directory::default(),
-                paths: directory::get_computer_drives(),
-                scanning: false,
-                pressed_cancel: false,
-                selected_drive: None,
+                view: Default::default(),
             },
             Command::none(),
         )
@@ -65,7 +51,8 @@ impl Application for GUI {
     fn view(&self) -> Element<ApplicationEvent> {
         match self.view {
             View::DirectoryDisplay => {
-                let dir = &self.dir;
+              // todo: how to associate views with state, is it possible?
+                let dir = &self.view.dir;
                 let dir_clone = dir.clone();
                 container("todo").into()
                 // let error = dir.lock().unwrap().get_error().clone();
@@ -160,6 +147,7 @@ impl Application for GUI {
             ApplicationEvent::IcedEvent(event) => {
                 // does not work
                 // println!("{:?}", event);
+                //todo: -> https://discourse.iced.rs/t/quit-application/34
                 Command::none()
             }
             ApplicationEvent::Start => Command::none(),
@@ -194,7 +182,7 @@ pub fn run(settings: Settings<<GUI as iced::Application>::Flags>) -> Result<(), 
 
 #[derive(Default)]
 pub enum View {
-  #[default]
+    #[default]
     Start,
     DirectoryDisplay,
 }
