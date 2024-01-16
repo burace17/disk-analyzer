@@ -1,48 +1,56 @@
 use std::{thread, sync::{Arc, Mutex}, path::PathBuf};
-use futures::channel::mpsc::Sender;
+use futures::{channel::mpsc::Sender, future, stream::FuturesUnordered};
 use iced_futures::{Subscription, subscription, futures::{stream::Scan, sink::SinkExt, self, channel::mpsc::{self, Receiver}}};
 use crate::application::ApplicationEvent;
 use async_tungstenite::tungstenite;
+use futures_util;
 
 #[derive(Debug, Clone)]
-pub enum ScanEvent {
-    Completed(Sender<Event>),
-		Cancelled,
-}
-#[derive(Debug)]
-#[allow(clippy::large_enum_variant)]
-pub enum State {
-	Left, 
-	Right(Receiver<Event>)
-}
-
 pub enum Event {
-    Ready,
-    WorkFinished,
+	Ready(mpsc::Sender<Input>),
+	WorkFinished,
+	// ...
 }
 
-pub fn on_scan_start(file_path: std::path::PathBuf) -> Subscription<ScanEvent> {
-	struct Scanner;
+pub enum Input {
+	DoSomeWork,
+	// ...
+}
 
-	// todo: fix didn't exit correctly
-	subscription::channel(std::any::TypeId::of::<Scanner>(), 100, 
-	|mut output| async move {
-		let mut state = State::Left;
-		loop {
-			match &mut state {
-					State::Left => {
-							let (sender, receiver) = mpsc::channel(100);
-							output.send(ScanEvent::Completed(sender)).await;
-							state = State::Right(receiver);
+enum State {
+	Starting,
+	Ready(mpsc::Receiver<Input>),
+}
+
+pub(crate) fn some_worker() -> Subscription<Event> {
+	struct SomeWorker;
+
+	subscription::channel(std::any::TypeId::of::<SomeWorker>(), 100, |mut output| async move {
+			let mut state = State::Starting;
+
+			loop {
+					match &mut state {
+							State::Starting => {
+									let (sender, receiver) = mpsc::channel(100);
+									output.send(Event::Ready(sender)).await;
+									state = State::Ready(receiver);
+							}
+							State::Ready(receiver) => {
+								use iced_futures::futures::StreamExt;
+								futures_util::select! {
+										received = receiver.select_next_some() => {
+												match received {
+													Input::DoSomeWork => {
+														output.send(Event::WorkFinished).await;
+														state = State::Starting
+													}
+											}
+										}
+										complete => continue,
+									}
+							}
 					}
-					State::Right(receiver) => {
-							use futures::stream::StreamExt; // why do we need stream ext?
-							let input = receiver.select_next_some().await;
-							output.send(ScanEvent::Cancelled).await;
-						}
 			}
-		}
-	}		
-	)
+	})
 }
 

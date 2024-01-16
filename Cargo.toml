@@ -26,4 +26,5 @@ iced_futures = "0.7.0"
 tokio = { version = "*",  features = ["sync"]}
 futures = "0.3.30"
 async-tungstenite = "0.24.0"
+futures-util = "0.3.30"
 # iced_native = "0.10.3"

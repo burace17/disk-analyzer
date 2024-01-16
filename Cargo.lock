@@ -570,6 +570,7 @@ dependencies = [
  "async-tungstenite",
  "frunk",
  "futures",
+ "futures-util",
  "humansize",
  "iced",
  "iced_futures",

@@ -20,6 +20,7 @@ use iced::{executor, window, subscription};
 use crate::events::handlers;
 
 use super::directory;
+
 #[derive(Debug, Clone)]
 pub enum ApplicationEvent {
     DropdownSelected,
@@ -27,7 +28,7 @@ pub enum ApplicationEvent {
     RequestedScan,
     RequestedCancel,
     Start,
-    ScanEvent(handlers::ScanEvent),
+    ScanEvent(handlers::Event),
     // ScanFinished(Arc<Mutex<directory::Directory>>),
     IcedEvent(iced::Event) // couldn't use
 }
@@ -42,7 +43,7 @@ pub struct GUI {
     pressed_cancel: bool,
     selected_drive: Option<String>
  }
-use super::events::handlers::on_scan_start;
+// use super::events::handlers::on_scan_start;
 
 /* top level app presentation interface */
  impl Application for GUI {
@@ -135,7 +136,7 @@ use super::events::handlers::on_scan_start;
         .get("C")
         .expect("Letter not found")
         .clone();
-        handlers::on_scan_start(selected_path).map(ApplicationEvent::ScanEvent)
+        handlers::some_worker().map(ApplicationEvent::ScanEvent)
         // subscription::events().map(ApplicationEvent::IcedEvent)
     }
 }
