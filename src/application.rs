@@ -19,6 +19,8 @@ use iced::widget::button::StyleSheet;
 use iced::widget::{container, button, column, pick_list};
 use iced::{Command, Application, Theme, Element, Length, theme, Settings, Subscription, Event};
 use iced::{executor, window, subscription};
+use crate::analyzer;
+use crate::directory::Directory;
 use crate::events::handlers;
 use super::directory;
 
@@ -45,10 +47,8 @@ pub enum ApplicationEvent {
 }
 #[derive(Default)]
 pub struct GUI {
-    // model: ConfigModel,
-    // file_chooser: gtk::FileChooserButton,
-    // analyzer_win: Option<Component<analyzer::AnalyzerWindow>>,
-    // path: Option<std::path::PathBuf>,
+    dir: Directory,
+    scan_finished: bool,
     cancel_sender: Option<Sender<()>>,
     paths: HashMap<String, PathBuf>,
     scanning: bool,
@@ -68,6 +68,7 @@ pub struct GUI {
     // in contrast to
     // y: int
     fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) { ( GUI {
+        scan_finished: false,
         cancel_sender: None,
         paths:  directory::get_computer_drives(),
         scanning: false,
@@ -75,34 +76,58 @@ pub struct GUI {
         selected_drive: None
     },             Command::none()) }
     fn view(&self) -> Element<ApplicationEvent> {
-
-        // self.paths = Some(options); // don't update self here
-        // let x: Vec<String> = options.keys().cloned().collect();
-        // let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();
-        // let path_display = self.selected_drive.clone().map(|pb| pb.to_string_lossy().into_owned());
-        let drives_as_strings: Vec<String> = self.paths.keys().cloned().collect();
-        let directory_list = 
-            pick_list(drives_as_strings, self.selected_drive.clone(), ApplicationEvent::DriveSelected)
-                .placeholder("Select a directory...");
-        let mut scan_button = button("scan")
-            .padding(10)
-            .style(theme::Button::Primary);
-        let mut cancel_button = button("cancel")
-            .padding(10)
-            .style(theme::Button::Primary);
-        if !self.scanning {
-            scan_button = scan_button.on_press(ApplicationEvent::RequestedScan)   
-        } else {
-            cancel_button = cancel_button.on_press(ApplicationEvent::RequestedCancel)
+        match self.scan_finished {
+            true => {
+              let dir = self.dir;
+                let dir_clone = dir.clone();
+                // let error = dir.lock().unwrap().get_error().clone();
+                // match error {
+                //         None => {
+                                // self.window.hide();
+                                let analyzer_win = init::<analyzer::AnalyzerWindow>(dir_clone).expect("Couldn't init");
+                                analyzer_win
+                                // analyzer_win.widget().show_all();
+                                // self.analyzer_win = Some(analyzer_win);
+                        // },
+                        // Some(e) => match e {
+                        //         directory::ReadError::IOError(_) => {
+                        //                 let msg = "Could not read directory contents";
+                        //                 let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
+                        //                                                                                                     gtk::ButtonsType::Ok, &msg);
+                        //                 message_box.run();
+                        //                 message_box.hide();
+                        //                 self.reset_ui();
+                        //         },
+                        //         directory::ReadError::OperationCancelled => self.reset_ui()
+                        // }
+                // }
+            },
+            false => {
+                let drives_as_strings: Vec<String> = self.paths.keys().cloned().collect();
+                let directory_list = 
+                    pick_list(drives_as_strings, self.selected_drive.clone(), ApplicationEvent::DriveSelected)
+                        .placeholder("Select a directory...");
+                let mut scan_button = button("scan")
+                    .padding(10)
+                    .style(theme::Button::Primary);
+                let mut cancel_button = button("cancel")
+                    .padding(10)
+                    .style(theme::Button::Primary);
+                if !self.scanning {
+                    scan_button = scan_button.on_press(ApplicationEvent::RequestedScan)   
+                } else {
+                    cancel_button = cancel_button.on_press(ApplicationEvent::RequestedCancel)
+                }
+        
+                let app_context = column![directory_list, scan_button, cancel_button]
+                    .spacing(20)
+                    .max_width(200);
+                container(app_context)
+                    .height(Length::Fill)
+                    .center_y()
+                    .into()
+            },
         }
-
-        let app_context = column![directory_list, scan_button, cancel_button]
-            .spacing(20)
-            .max_width(200);
-        container(app_context)
-            .height(Length::Fill)
-            .center_y()
-            .into()
     }
     fn title(&self) -> String { String::from("Disk Analyzer") }
     fn update(&mut self, message: ApplicationEvent) -> Command<ApplicationEvent> {
@@ -152,7 +177,8 @@ pub struct GUI {
         // }
         ApplicationEvent::ScanFinished(dir) => {
             self.cancel_sender = None;
-
+            self.scan_finished = true;
+            self.dir = dir;
             println!("{}", dir);
             Command::none()
         },

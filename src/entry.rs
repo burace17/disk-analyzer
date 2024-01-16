@@ -11,6 +11,7 @@ mod application;
 mod directory;
 mod events;
 mod frontend { mod styling; }
+mod analyzer;
 // use application::gui;
 use iced::Settings;
 

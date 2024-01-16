@@ -31,7 +31,8 @@ pub async fn on_scan_start(file_path: PathBuf) -> Directory {
 	
 }
 
-// fn on_scan_complete(dir: Arc<Mutex<directory::Directory>>) {
+// fn on_scan_complete(&mut self, dir: Arc<Mutex<directory::Directory>>) {
+// 	self.cancel_sender = None;
 // 	let dir_clone = dir.clone();
 // 	let error = dir.lock().unwrap().get_error().clone();
 // 	match error {
