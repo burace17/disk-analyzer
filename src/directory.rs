@@ -69,7 +69,7 @@ pub struct Directory {
 }
 
 impl Directory {
-    fn new(name: &str, parent: Weak<Mutex<Directory>>, path: &str) -> Directory {
+    pub fn new(name: &str, parent: Weak<Mutex<Directory>>, path: &str) -> Directory {
         Directory {
             name: name.to_string(),
             size: 0,

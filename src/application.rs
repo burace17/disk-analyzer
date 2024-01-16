@@ -9,6 +9,8 @@
 // use super::analyzer;
 #![allow(unused_imports)]
 use std::collections::HashMap;
+use std::io::Error;
+use std::iter::Scan;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -16,10 +18,18 @@ use iced::widget::button::StyleSheet;
 use iced::widget::{container, button, column, pick_list};
 use iced::{Command, Application, Theme, Element, Length, theme, Settings, Subscription, Event};
 use iced::{executor, window, subscription};
-
 use crate::events::handlers;
-
 use super::directory;
+
+#[derive(Debug, Clone)]
+struct ScanError;
+
+impl From<std::io::Error> for ScanError {
+    fn from(error: std::io::Error) -> Self {
+        // Convert std::io::Error to your custom error type
+        ScanError
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum ApplicationEvent {
@@ -28,8 +38,8 @@ pub enum ApplicationEvent {
     RequestedScan,
     RequestedCancel,
     Start,
-    ScanEvent(handlers::Event),
-    // ScanFinished(Arc<Mutex<directory::Directory>>),
+    // ScanEvent(handlers::Event),
+    ScanFinished(directory::Directory),
     IcedEvent(iced::Event) // couldn't use
 }
 #[derive(Default)]
@@ -105,16 +115,18 @@ pub struct GUI {
                         .get(&drive)
                         .expect("Letter not found")
                         .clone();
-                    // on_scan_start(selected_path);
+                    Command::perform(handlers::on_scan_start(selected_path), ApplicationEvent::ScanFinished)
                 }
                 None => {
-                    println!("No drive selected")
+                    println!("No drive selected");
+                    Command::none()
                 }
             }
-            
-
+        },
+        ApplicationEvent::RequestedCancel => { 
+            self.pressed_cancel = true; 
+            self.scanning = false; 
             Command::none() },
-        ApplicationEvent::RequestedCancel => { self.pressed_cancel = true; self.scanning = false; Command::none() },
         ApplicationEvent::IcedEvent(event) => {
             // does not work
             println!("{:?}", event);
@@ -124,21 +136,25 @@ pub struct GUI {
             Command::none()
         }, 
         ApplicationEvent::Start => { Command::none() }
-        ApplicationEvent::ScanEvent(event) => {
-            println!("{:?}", event);
+        // ApplicationEvent::ScanEvent(event) => {
+        //     println!("{:?}", event);
+        //     Command::none()
+        // }
+        ApplicationEvent::ScanFinished(dir) => {
+            println!("{}", dir);
             Command::none()
-        }
+        },
        }
     }    
-    fn subscription(&self) -> Subscription<ApplicationEvent> {
-        // handlers::connect().map(ApplicationEvent::ScanEvent)
-        let selected_path: PathBuf = self.paths
-        .get("C")
-        .expect("Letter not found")
-        .clone();
-        handlers::some_worker().map(ApplicationEvent::ScanEvent)
-        // subscription::events().map(ApplicationEvent::IcedEvent)
-    }
+//     fn subscription(&self) -> Subscription<ApplicationEvent> {
+//         // handlers::connect().map(ApplicationEvent::ScanEvent)
+//         let selected_path: PathBuf = self.paths
+//         .get("C")
+//         .expect("Letter not found")
+//         .clone();
+//         handlers::some_worker().map(ApplicationEvent::ScanEvent)
+//         // subscription::events().map(ApplicationEvent::IcedEvent)
+//     }
 }
 
 pub fn run(settings: Settings<<GUI as iced::Application>::Flags>) -> Result<(), iced::Error> { GUI::run(settings) }
