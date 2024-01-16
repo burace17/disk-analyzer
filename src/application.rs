@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::io::Error;
 use std::iter::Scan;
 use std::path::PathBuf;
+use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex};
 
 use iced::widget::button::StyleSheet;
@@ -48,6 +49,7 @@ pub struct GUI {
     // file_chooser: gtk::FileChooserButton,
     // analyzer_win: Option<Component<analyzer::AnalyzerWindow>>,
     // path: Option<std::path::PathBuf>,
+    cancel_sender: Option<Sender<()>>,
     paths: HashMap<String, PathBuf>,
     scanning: bool,
     pressed_cancel: bool,
@@ -66,6 +68,7 @@ pub struct GUI {
     // in contrast to
     // y: int
     fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) { ( GUI {
+        cancel_sender: None,
         paths:  directory::get_computer_drives(),
         scanning: false,
         pressed_cancel: false,
@@ -111,6 +114,9 @@ pub struct GUI {
             self.pressed_cancel = false; 
             match self.selected_drive.clone() {
                 Some(drive) => {
+                    let (send, recv) = channel();
+                    self.cancel_sender = Some(send);
+        
                     let selected_path: PathBuf = self.paths
                         .get(&drive)
                         .expect("Letter not found")
@@ -126,7 +132,11 @@ pub struct GUI {
         ApplicationEvent::RequestedCancel => { 
             self.pressed_cancel = true; 
             self.scanning = false; 
-            Command::none() },
+            if let Some(tracker) = &self.cancel_sender {
+                tracker.send(()).unwrap();
+            }
+            Command::none() 
+        },
         ApplicationEvent::IcedEvent(event) => {
             // does not work
             println!("{:?}", event);
@@ -141,6 +151,8 @@ pub struct GUI {
         //     Command::none()
         // }
         ApplicationEvent::ScanFinished(dir) => {
+            self.cancel_sender = None;
+
             println!("{}", dir);
             Command::none()
         },
