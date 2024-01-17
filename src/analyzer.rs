@@ -4,7 +4,7 @@
 
 use humansize::WINDOWS;
 // use humansize;
-use std::{sync::{Arc, Weak, Mutex}, collections::HashMap};
+use std::{sync::{Arc, Weak, Mutex}, collections::HashMap, path::PathBuf};
 use crate::{directory::Directory, application::View};
 
 use super::directory;
@@ -119,9 +119,7 @@ fn create_analyzer_columns(file_list: ViewColumn) {
         formatted_size
         // cell.set_property_text(Some(&formatted_size));
     });
-    file_list.children.insert("Name", create_column(1, "Name", None, true));
-
-    add_column(&file_list, 3, "Size", Some(size_data_func), true);
+    file_list.children.insert("Name", create_column(3, "Size", Some(size_data_func), true));
 }
 
 pub struct AnalyzerModel {
@@ -129,23 +127,23 @@ pub struct AnalyzerModel {
     current: Weak<Mutex<directory::Directory>>
 }
 
-#[derive(Msg)]
+// #[derive(Msg)]
 pub enum AnalyzerMsg {
     Quit,
-    RowActivated(gtk::TreePath),
+    RowActivated(ViewColumn),
     Up
 }
 
 pub struct AnalyzerWindow {
     model: AnalyzerModel,
-    window: Window,
-    list_store: gtk::ListStore,
-    sort_store: gtk::TreeModelSort,
-    header_bar: gtk::HeaderBar
+    // window: Window,
+    // list_store: gtk::ListStore,
+    // sort_store: gtk::TreeModelSort,
+    // header_bar: gtk::HeaderBar
 }
 
 impl AnalyzerWindow {
-    fn on_row_activated(&mut self, path: gtk::TreePath) {
+    fn on_row_activated(&mut self, path: PathBuf) {
         let current = self.model.current.upgrade().expect("Shouldn't be none");
         let current_unlocked = current.lock().unwrap();
         let subdirs = current_unlocked.get_subdirectories();
@@ -158,14 +156,14 @@ impl AnalyzerWindow {
                 let new_dir = &subdirs[index];
                 if new_dir.lock().unwrap().has_error() {
                     let msg = format!("Could not read directory contents");
-                    let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
-                                                              gtk::ButtonsType::Ok, &msg);
-                    message_box.run();
-                    message_box.hide();
+                    // let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
+                    //                                           gtk::ButtonsType::Ok, &msg);
+                    // message_box.run();
+                    // message_box.hide();
                 }
                 else {
                     self.list_store.clear();
-                    fill_list_store(&self.list_store, &new_dir);
+                    self.list_store = fill_list_store(&new_dir);
                     self.header_bar.set_subtitle(Some(new_dir.lock().unwrap().get_path()));
                     self.model.current = Arc::downgrade(&new_dir);
                 }
@@ -178,7 +176,7 @@ impl AnalyzerWindow {
         let parent_ptr = current.lock().unwrap().get_parent();
         if let Some(parent) = parent_ptr.upgrade() {
             self.list_store.clear();
-            fill_list_store(&self.list_store, &parent);
+            self.list_store = fill_list_store(&parent);
             self.header_bar.set_subtitle(Some(parent.lock().unwrap().get_path()));
             self.model.current = Arc::downgrade(&parent);
         }
@@ -186,30 +184,30 @@ impl AnalyzerWindow {
 }
 
 
-impl Update for AnalyzerWindow {
-    type Model = AnalyzerModel;
-    type ModelParam = Arc<Mutex<directory::Directory>>;
-    type Msg = AnalyzerMsg;
+// impl Update for AnalyzerWindow {
+//     type Model = AnalyzerModel;
+//     type ModelParam = Arc<Mutex<directory::Directory>>;
+//     type Msg = AnalyzerMsg;
 
-    fn model(_: &Relm<Self>, dir: Self::ModelParam) -> AnalyzerModel {
-        let current_ref = Arc::downgrade(&dir);
-        AnalyzerModel {
-            root: dir,
-            current: current_ref
-        }
-    }
+//     fn model(_: &Relm<Self>, dir: Self::ModelParam) -> AnalyzerModel {
+//         let current_ref = Arc::downgrade(&dir);
+//         AnalyzerModel {
+//             root: dir,
+//             current: current_ref
+//         }
+//     }
 
-    fn update(&mut self, event: AnalyzerMsg) {
-        match event {
-            AnalyzerMsg::Quit => gtk::main_quit(),
-            AnalyzerMsg::RowActivated(path) => self.on_row_activated(path),
-            AnalyzerMsg::Up => self.on_up_clicked()
-        }
-    }
-}
+//     fn update(&mut self, event: AnalyzerMsg) {
+//         match event {
+//             AnalyzerMsg::Quit => gtk::main_quit(),
+//             AnalyzerMsg::RowActivated(path) => self.on_row_activated(path),
+//             AnalyzerMsg::Up => self.on_up_clicked()
+//         }
+//     }
+// }
 
 impl Widget for AnalyzerWindow {
-    type Root = Window;
+    // type Root = Window;
 
     fn root(&self) -> Self::Root {
         self.window.clone()
