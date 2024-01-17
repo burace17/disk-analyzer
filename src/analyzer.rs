@@ -20,39 +20,41 @@ struct DirStore {
     inner_size: u64,
 }
 
-fn fill_list_store(dir: Directory) -> Vec<DirStore> {
-    // let current_directory = dir.lock().unwrap();
-    let current_directory = dir;
-    let current_directory_size = current_directory.get_size();
-    let mut store_list = Vec::new();
-    for sub in current_directory.get_subdirectories() {
-        let subdir = sub.lock().unwrap();
-        if subdir.has_error() {
-            store_list.push(DirStore { 
-                icon: &ERROR_ICON, 
-                name: &subdir.get_name(), 
-                outer_size: current_directory_size, 
-                inner_size: subdir.get_size() });
-        }
-        else {
-            store_list.push(DirStore {
-                icon: &FOLDER_ICON, 
-                name: &subdir.get_name(), 
-                outer_size: current_directory_size, 
-                inner_size: subdir.get_size()
-            });
-        }
-    }
-    for file in current_directory.get_files() {
-        store_list.push(DirStore {
-            icon: &file.get_mime(), 
-            name: &file.get_name(), 
-            outer_size: current_directory_size, 
-            inner_size: file.get_size()
-        });
-        };
-    store_list    
-}
+// fn fill_list_store(dir: Directory) -> Vec<DirStore> {
+//     // let current_directory = dir.lock().unwrap();
+//     let current_directory = dir.clone();
+//     let current_directory_size = current_directory.get_size();
+//     let t = current_directory.get_subdirectories();
+//     let f = current_directory.get_files();
+//     let mut store_list = Vec::new();
+//     for sub in t {
+//         let subdir = sub.lock().unwrap();
+//         if subdir.has_error() {
+//             store_list.push(DirStore { 
+//                 icon: &ERROR_ICON, 
+//                 name: &subdir.get_name(), 
+//                 outer_size: current_directory_size, 
+//                 inner_size: subdir.get_size() });
+//         }
+//         else {
+//             store_list.push(DirStore {
+//                 icon: &FOLDER_ICON, 
+//                 name: &subdir.get_name(), 
+//                 outer_size: current_directory_size, 
+//                 inner_size: subdir.get_size()
+//             });
+//         }
+//     }
+//     for file in f {
+//         store_list.push(DirStore {
+//             icon: &file.get_mime(), 
+//             name: &file.get_name(), 
+//             outer_size: current_directory_size, 
+//             inner_size: file.get_size()
+//         });
+//         };
+//     store_list    
+// }
 #[derive(Clone, Builder)]
 pub struct ViewColumn {
     pack_start: bool,

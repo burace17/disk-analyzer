@@ -70,12 +70,26 @@ impl Application for GUI {
                 let file_list = ViewColumn::default_butt_title(String::from("root"));
                 let file_columns = analyzer::create_analyzer_columns(file_list);
                 let c = file_columns.children.iter();
-                // let mut tv = Vec::new();
-                // let x = container(text("eee").size(100));
-                // tv.push(x);
-                let y: Vec<_> = c
-                .map(|(k, v)| {container(text(k))})
-                .collect();
+                let test = vec![1, 2, 3];
+                let b: Column<'_, ApplicationEvent> = column![];
+                let a = test.iter().fold(b, |column, num| {
+                  column.push(text(num))
+                });
+
+               
+
+
+
+
+                // let y = c.fold(column![], 
+                //   |column, (k, v)| {
+                //   column.push(text(k))
+                // })
+                // .spacing(20)                ;
+
+
+
+
                 // let acc = Vec::new();
                 // for(k, v) in file_columns.children.iter() {
                 //   let cell: Container<Text<String>> = container(x);
@@ -171,8 +185,9 @@ impl Application for GUI {
                 self.cancel_sender = None;
                 self.scan_finished = true;
                 self.dir = dir;
+                self.view = View::DirectoryDisplay;
                 println!("scan finished");
-                println!("{}", &self.dir);
+                println!("{:?}", &self.view);
                 Command::none()
             }
         }
@@ -192,7 +207,7 @@ pub fn run(settings: Settings<<GUI as iced::Application>::Flags>) -> Result<(), 
     GUI::run(settings)
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub enum View {
   #[default]
     Start,
