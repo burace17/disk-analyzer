@@ -140,7 +140,7 @@ pub fn create_analyzer_columns(mut file_list: ViewColumn) -> ViewColumn {
     //     }
     // });
     let icon = "f";
-    file_list.children.insert(String::from(""), create_column(0, "", Some(String::from(icon)), false));
+    file_list.children.insert(String::from("Icon"), create_column(0, "Icon", Some(String::from(icon)), false));
     file_list.children.insert(String::from("Name"), create_column(1, "Name", None, true));
 
     // let percentage_data_func = Box::new(|_, render, model, iter| {
@@ -170,7 +170,7 @@ pub fn create_analyzer_columns(mut file_list: ViewColumn) -> ViewColumn {
     //     // cell.set_property_text(Some(&formatted_size));
     // });
     let size_data_func = String::from("69");
-    file_list.children.insert(String::from("Name"), create_column(3, "Size", Some(size_data_func), true));
+    file_list.children.insert(String::from("Size"), create_column(3, "Size", Some(size_data_func), true));
     file_list
 }
 

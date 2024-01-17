@@ -20,7 +20,7 @@ use crate::analyzer::{self, ViewColumn};
 use crate::directory::Directory;
 use crate::events::handlers;
 use iced::widget::button::StyleSheet;
-use iced::widget::{button, column, container, pick_list, row, text, Container, Text, Column};
+use iced::widget::{button, column, container, pick_list, row, text, Container, Text, Column, Row};
 use iced::{executor, subscription, window, Renderer};
 use iced::{theme, Application, Command, Element, Event, Length, Settings, Subscription, Theme};
 
@@ -65,41 +65,15 @@ impl Application for GUI {
     fn view(&self) -> Element<ApplicationEvent> {
         match self.view {
             View::DirectoryDisplay => {
-                let dir = &self.dir;
-                let dir_clone = dir.clone();
+                // let dir = &self.dir;
+                // let dir_clone = dir.clone();
                 let file_list = ViewColumn::default_butt_title(String::from("root"));
                 let file_columns = analyzer::create_analyzer_columns(file_list);
-                let c = file_columns.children.iter();
-                let test = vec![1, 2, 3];
-                let b: Column<'_, ApplicationEvent> = column![];
-                let a = test.iter().fold(b, |column, num| {
-                  column.push(text(num))
+                let header_view: Row<'_, ApplicationEvent> = row![];
+                let header_columns = file_columns.children.iter().fold(header_view, |acc, (k, v)| {
+                  acc.push(text(k))
                 });
-
-               
-
-
-
-
-                // let y = c.fold(column![], 
-                //   |column, (k, v)| {
-                //   column.push(text(k))
-                // })
-                // .spacing(20)                ;
-
-
-
-
-                // let acc = Vec::new();
-                // for(k, v) in file_columns.children.iter() {
-                //   let cell: Container<Text<String>> = container(x);
-                //   acc.push(cell);
-                // }
-                // let header_columns = file_columns.children.iter().fold(Vec::new(), 
-                // |acc, (k, v)| {
-                // });
-                // let directory_page = Column::with_children(y.iter().map(Element::from));
-                container("directory_page")
+                container(header_columns)
                     .height(Length::Fill)
                     .center_y()
                     .into()                
