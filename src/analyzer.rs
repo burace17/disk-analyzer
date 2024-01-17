@@ -2,7 +2,8 @@
 //  * License, v. 2.0. If a copy of the MPL was not distributed with this
 //  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-// use humansize::{FileSize, file_size_opts as options};
+use humansize::WINDOWS;
+// use humansize;
 use std::{sync::{Arc, Weak, Mutex}, collections::HashMap};
 use crate::{directory::Directory, application::View};
 
@@ -114,10 +115,13 @@ fn create_analyzer_columns(file_list: ViewColumn) {
         let val = model.get_value(&iter, 3).get::<u64>()
             .expect("Couldn't get size value from tree model")
             .expect("Couldn't get size value from tree model");
-        let formatted_size = val.file_size(options::CONVENTIONAL).unwrap();
+        let formatted_size = val.file_size(WINDOWS).unwrap();
+        formatted_size
         // cell.set_property_text(Some(&formatted_size));
     });
-    add_column(&file_list, 3, "Size", Some(size_data_func), true, gtk::CellRendererText::new());
+    file_list.children.insert("Name", create_column(1, "Name", None, true));
+
+    add_column(&file_list, 3, "Size", Some(size_data_func), true);
 }
 
 pub struct AnalyzerModel {
