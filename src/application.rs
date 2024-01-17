@@ -67,8 +67,8 @@ impl Application for GUI {
             View::DirectoryDisplay => {
                 let dir = &self.dir;
                 let dir_clone = dir.clone();
-                
-                create_analyzer_columns(&file_list);
+                let file_list = ViewColumn::default();
+                analyzer::create_analyzer_columns(&file_list);
         
                 let file_model = gtk::ListStore::new(&[String::static_type(), String::static_type(), u64::static_type(), u64::static_type()]);
                 let sortable_store = gtk::TreeModelSort::new(&file_model);
