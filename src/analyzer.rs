@@ -6,45 +6,60 @@ use humansize::WINDOWS;
 // use humansize;
 use std::{sync::{Arc, Weak, Mutex}, collections::HashMap, path::PathBuf};
 use crate::{directory::Directory, application::View};
-
 use super::directory;
 
 static FOLDER_ICON: &str = "folder";
 static ERROR_ICON: &str = "dialog-error";
 
 // type CellDataFunc = Box<dyn Fn(&gtk::TreeViewColumn, &gtk::CellRenderer, &gtk::TreeModel, &gtk::TreeIter) + 'static>;
+#[derive(Clone, Builder)]
 struct DirStore {
-    icon: str,
-    name: str,
-    outer_size: i32,
-    inner_size: i32,
+    icon: &'static str,
+    name: &'static str,
+    outer_size: u64,
+    inner_size: u64,
 }
 
 fn fill_list_store(dir: Directory) -> Vec<DirStore> {
-    let current_directory = dir.lock().unwrap();
+    // let current_directory = dir.lock().unwrap();
+    let current_directory = dir;
     let current_directory_size = current_directory.get_size();
-    let store_list = Vec::new();
+    let mut store_list = Vec::new();
     for sub in current_directory.get_subdirectories() {
         let subdir = sub.lock().unwrap();
         if subdir.has_error() {
-            store_list.append(DirStore::new(&ERROR_ICON, &subdir.get_name(), &current_directory_size, &subdir.get_size()));
+            store_list.push(DirStore { 
+                icon: &ERROR_ICON, 
+                name: &subdir.get_name(), 
+                outer_size: current_directory_size, 
+                inner_size: subdir.get_size() });
         }
         else {
-            store_list.append(DirStore::new(&FOLDER_ICON, &subdir.get_name(), &current_directory_size, &subdir.get_size()));
+            store_list.push(DirStore {
+                icon: &FOLDER_ICON, 
+                name: &subdir.get_name(), 
+                outer_size: current_directory_size, 
+                inner_size: subdir.get_size()
+            });
         }
     }
     for file in current_directory.get_files() {
-        store_list.append(DirStore::new(&file.get_mime(), &file.get_name(), &current_directory_size, &file.get_size()));
-    }
-    store_list
+        store_list.push(DirStore {
+            icon: &file.get_mime(), 
+            name: &file.get_name(), 
+            outer_size: current_directory_size, 
+            inner_size: file.get_size()
+        });
+        };
+    store_list    
 }
-
+#[derive(Clone, Builder)]
 pub struct ViewColumn {
     pack_start: bool,
     title: String,
     clickable: bool,
     sortable: bool,
-    sort_id: Option<String>, // &'static 
+    sort_id: Option<i32>, // &'static 
     pub children: HashMap<String, ViewColumn>,
     content: Option<String>,
 }
@@ -77,7 +92,15 @@ impl Default for ViewColumn {
 fn create_column(id: i32, title: &str, content: Option<String>, is_sortable: bool) -> ViewColumn
 {
     let id = if is_sortable { Some(id) } else { None };
-    ViewColumn::new(true, title, is_sortable, is_sortable, id, HashMap::new(), content)
+    ViewColumn {
+      pack_start: true, 
+      title: String::from(title), 
+      clickable: is_sortable, 
+      sortable: is_sortable, 
+      sort_id: id, 
+      children: HashMap::new(), 
+      content: content  
+    }
     // let column = gtk::TreeViewColumn::new();
 
     // column.pack_start(&cell, true);
@@ -98,51 +121,53 @@ fn create_column(id: i32, title: &str, content: Option<String>, is_sortable: boo
     // tree.append_column(&column);
 }
 
-pub fn create_analyzer_columns(file_list: ViewColumn) -> ViewColumn {
-    let icon_data_func = Box::new(|_, render, model, iter| {
-        let cell = render.clone().downcast().expect("Expected renderer to be CellRenderText");
-        let model_val = model.get_value(&iter, 0);
-        let icon_name = model_val.get::<&str>().expect("Couldn't get icon name").expect("Couldn't get icon name");
+pub fn create_analyzer_columns(mut file_list: ViewColumn) -> ViewColumn {
+    // let icon_data_func = Box::new(|_, render, model, iter| {
+    //     let cell = render.clone().downcast().expect("Expected renderer to be CellRenderText");
+    //     let model_val = model.get_value(&iter, 0);
+    //     let icon_name = model_val.get::<&str>().expect("Couldn't get icon name").expect("Couldn't get icon name");
 
-        if icon_name == FOLDER_ICON || icon_name == ERROR_ICON {
-            // cell.set_property_icon_name(Some(icon_name));
-            Some(icon_name)
-        }
-        else {
-            let icon = "foo"; //get_content_type_icon(icon_name);
-            // cell.set_property_gicon(icon.as_ref());
-            Some(icon.as_ref())
-        }
-    });
+    //     if icon_name == FOLDER_ICON || icon_name == ERROR_ICON {
+    //         // cell.set_property_icon_name(Some(icon_name));
+    //         Some(icon_name)
+    //     }
+    //     else {
+    //         let icon = "foo"; //get_content_type_icon(icon_name);
+    //         // cell.set_property_gicon(icon.as_ref());
+    //         Some(icon.as_ref())
+    //     }
+    // });
     let icon = "f";
     file_list.children.insert(String::from(""), create_column(0, "", Some(String::from(icon)), false));
     file_list.children.insert(String::from("Name"), create_column(1, "Name", None, true));
 
-    let percentage_data_func = Box::new(|_, render, model, iter| {
-        // let cell = render.clone().downcast::<gtk::CellRendererText>().expect("Expected renderer to be CellRenderText");
-        let our_size = model.get_value(&iter, 3).get::<u64>()
-            .expect("Couldn't get size value from tree model")
-            .expect("Couldn't get size value from tree model") as f64;
-        let total_size = model.get_value(&iter, 2).get::<u64>()
-            .expect("Couldn't get size value from tree model")
-            .expect("Couldn't get size value from tree model") as f64;
+    // let percentage_data_func = Box::new(|_, render, model, iter| {
+    //     // let cell = render.clone().downcast::<gtk::CellRendererText>().expect("Expected renderer to be CellRenderText");
+    //     let our_size = model.get_value(&iter, 3).get::<u64>()
+    //         .expect("Couldn't get size value from tree model")
+    //         .expect("Couldn't get size value from tree model") as f64;
+    //     let total_size = model.get_value(&iter, 2).get::<u64>()
+    //         .expect("Couldn't get size value from tree model")
+    //         .expect("Couldn't get size value from tree model") as f64;
 
-        let percentage = (our_size / total_size) * 100.0;
-        let formatted = format!("{:.0}%", percentage);
-        formatted
-        // cell.set_property_text(Some(&formatted));
-    });
+    //     let percentage = (our_size / total_size) * 100.0;
+    //     let formatted = format!("{:.0}%", percentage);
+    //     formatted
+    //     // cell.set_property_text(Some(&formatted));
+    // });
+    let percentage_data_func = String::from("10");
     file_list.children.insert(String::from("%"), create_column(2, "%", Some(percentage_data_func), false));
 
-    let size_data_func = Box::new(|_, render, model, iter| {
-        // let cell = render.clone().downcast::<gtk::CellRendererText>().expect("Expected renderer to be CellRenderText");
-        let val = model.get_value(&iter, 3).get::<u64>()
-            .expect("Couldn't get size value from tree model")
-            .expect("Couldn't get size value from tree model");
-        let formatted_size = val.file_size(WINDOWS).unwrap();
-        formatted_size
-        // cell.set_property_text(Some(&formatted_size));
-    });
+    // let size_data_func = Box::new(|_, render, model, iter| {
+    //     // let cell = render.clone().downcast::<gtk::CellRendererText>().expect("Expected renderer to be CellRenderText");
+    //     let val = model.get_value(&iter, 3).get::<u64>()
+    //         .expect("Couldn't get size value from tree model")
+    //         .expect("Couldn't get size value from tree model");
+    //     let formatted_size = val.file_size(WINDOWS).unwrap();
+    //     formatted_size
+    //     // cell.set_property_text(Some(&formatted_size));
+    // });
+    let size_data_func = String::from("69");
     file_list.children.insert(String::from("Name"), create_column(3, "Size", Some(size_data_func), true));
     file_list
 }
@@ -167,46 +192,46 @@ pub struct AnalyzerWindow {
     // header_bar: gtk::HeaderBar
 }
 
-impl AnalyzerWindow {
-    fn on_row_activated(&mut self, path: PathBuf) {
-        let current = self.model.current.upgrade().expect("Shouldn't be none");
-        let current_unlocked = current.lock().unwrap();
-        let subdirs = current_unlocked.get_subdirectories();
-        let files_start_index = subdirs.len();
-        let indices = self.sort_store.convert_path_to_child_path(&path)
-            .expect("Sorted path does not correspond to real path").get_indices();
-        if indices.len() > 0 {
-            let index = indices[0] as usize;
-            if index < files_start_index { // only want directories
-                let new_dir = &subdirs[index];
-                if new_dir.lock().unwrap().has_error() {
-                    let msg = format!("Could not read directory contents");
-                    // let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
-                    //                                           gtk::ButtonsType::Ok, &msg);
-                    // message_box.run();
-                    // message_box.hide();
-                }
-                else {
-                    self.list_store.clear();
-                    self.list_store = fill_list_store(&new_dir);
-                    self.header_bar.set_subtitle(Some(new_dir.lock().unwrap().get_path()));
-                    self.model.current = Arc::downgrade(&new_dir);
-                }
-            }
-        }
-    }
+// impl AnalyzerWindow {
+//     fn on_row_activated(&mut self, path: PathBuf) {
+//         let current = self.model.current.upgrade().expect("Shouldn't be none");
+//         let current_unlocked = current.lock().unwrap();
+//         let subdirs = current_unlocked.get_subdirectories();
+//         let files_start_index = subdirs.len();
+//         let indices = self.sort_store.convert_path_to_child_path(&path)
+//             .expect("Sorted path does not correspond to real path").get_indices();
+//         if indices.len() > 0 {
+//             let index = indices[0] as usize;
+//             if index < files_start_index { // only want directories
+//                 let new_dir = &subdirs[index];
+//                 if new_dir.lock().unwrap().has_error() {
+//                     let msg = format!("Could not read directory contents");
+//                     // let message_box = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Error,
+//                     //                                           gtk::ButtonsType::Ok, &msg);
+//                     // message_box.run();
+//                     // message_box.hide();
+//                 }
+//                 else {
+//                     self.list_store.clear();
+//                     self.list_store = fill_list_store(&new_dir);
+//                     self.header_bar.set_subtitle(Some(new_dir.lock().unwrap().get_path()));
+//                     self.model.current = Arc::downgrade(&new_dir);
+//                 }
+//             }
+//         }
+//     }
 
-    fn on_up_clicked(&mut self) {
-        let current = self.model.current.upgrade().expect("Current dir shouldn't be none");
-        let parent_ptr = current.lock().unwrap().get_parent();
-        if let Some(parent) = parent_ptr.upgrade() {
-            self.list_store.clear();
-            self.list_store = fill_list_store(&parent);
-            self.header_bar.set_subtitle(Some(parent.lock().unwrap().get_path()));
-            self.model.current = Arc::downgrade(&parent);
-        }
-    }
-}
+//     fn on_up_clicked(&mut self) {
+//         let current = self.model.current.upgrade().expect("Current dir shouldn't be none");
+//         let parent_ptr = current.lock().unwrap().get_parent();
+//         if let Some(parent) = parent_ptr.upgrade() {
+//             self.list_store.clear();
+//             self.list_store = fill_list_store(&parent);
+//             self.header_bar.set_subtitle(Some(parent.lock().unwrap().get_path()));
+//             self.model.current = Arc::downgrade(&parent);
+//         }
+//     }
+// }
 
 
 // impl Update for AnalyzerWindow {

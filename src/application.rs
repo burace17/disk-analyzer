@@ -20,8 +20,8 @@ use crate::analyzer::{self, ViewColumn};
 use crate::directory::Directory;
 use crate::events::handlers;
 use iced::widget::button::StyleSheet;
-use iced::widget::{button, column, container, pick_list, row};
-use iced::{executor, subscription, window};
+use iced::widget::{button, column, container, pick_list, row, text, Container, Text, Column};
+use iced::{executor, subscription, window, Renderer};
 use iced::{theme, Application, Command, Element, Event, Length, Settings, Subscription, Theme};
 
 #[derive(Default)]
@@ -68,14 +68,24 @@ impl Application for GUI {
                 let dir = &self.dir;
                 let dir_clone = dir.clone();
                 let file_list = ViewColumn::default_butt_title(String::from("root"));
-                let file_columns = analyzer::create_analyzer_columns(&file_list);
-                let header_columns = file_columns.children.iter().fold(Vec::new(), |acc, (k, v)| {
-                  let cell = container(k);
-                  acc.add(cell);
-                  acc
-                });
-                let directory_page = container(column![header_columns]);
-                container(directory_page)
+                let file_columns = analyzer::create_analyzer_columns(file_list);
+                let c = file_columns.children.iter();
+                // let mut tv = Vec::new();
+                // let x = container(text("eee").size(100));
+                // tv.push(x);
+                let y: Vec<_> = c
+                .map(|(k, v)| {container(text(k))})
+                .collect();
+                // let acc = Vec::new();
+                // for(k, v) in file_columns.children.iter() {
+                //   let cell: Container<Text<String>> = container(x);
+                //   acc.push(cell);
+                // }
+                // let header_columns = file_columns.children.iter().fold(Vec::new(), 
+                // |acc, (k, v)| {
+                // });
+                // let directory_page = Column::with_children(y.iter().map(Element::from));
+                container("directory_page")
                     .height(Length::Fill)
                     .center_y()
                     .into()                

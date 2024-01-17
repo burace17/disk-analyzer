@@ -12,6 +12,9 @@ mod directory;
 mod events;
 mod frontend { mod styling; }
 mod analyzer;
+#[macro_use]
+extern crate derive_builder;
+
 // use application::gui;
 use iced::Settings;
 

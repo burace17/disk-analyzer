@@ -1,10 +1,12 @@
-use std::{thread, sync::{Arc, Mutex, Weak}, path::PathBuf};
+use std::{thread, sync::{Arc, Mutex, Weak, mpsc}, path::PathBuf};
 use futures::{channel::mpsc::Sender, future, stream::FuturesUnordered};
 use iced::Command;
-use iced_futures::{Subscription, subscription, futures::{stream::Scan, sink::SinkExt, self, channel::mpsc::{self, Receiver}}};
 use crate::{application::ApplicationEvent, directory::{self, Directory}};
 use async_tungstenite::tungstenite;
 use futures_util;
+
+// use iced_futures::{Subscription, subscription, futures::{stream::Scan, sink::SinkExt, self, channel::mpsc::{self, Receiver}}};
+
 
 #[derive(Debug, Clone)]
 pub enum Event {
