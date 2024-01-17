@@ -39,14 +39,38 @@ fn fill_list_store(dir: Directory) -> Vec<DirStore> {
     store_list
 }
 
-struct ViewColumn {
+pub struct ViewColumn {
     pack_start: bool,
     title: String,
     clickable: bool,
     sortable: bool,
-    sort_id: Option<String>,
+    sort_id: Option<String>, // &'static 
     children: HashMap<String, ViewColumn>,
     content: Option<String>,
+}
+
+impl ViewColumn {
+    pub fn default_butt_title(title: String) -> Self {
+        ViewColumn {
+            title: title,
+            ..Default::default()
+        }
+    }
+}
+
+impl Default for ViewColumn {
+    fn default() -> Self {
+        ViewColumn {
+            pack_start: false,
+            title: String::from("blair is a weeb"), // if i used str, title could not own the value, &'static str if i know str at compile time
+            clickable: false,
+            sortable: false,
+            sort_id: None,
+            children: HashMap::new(),
+            content: None
+
+        }
+    }
 }
 
 // <R: IsA<gtk::CellRenderer>>
@@ -74,7 +98,7 @@ fn create_column(id: i32, title: &str, content: Option<String>, is_sortable: boo
     // tree.append_column(&column);
 }
 
-fn create_analyzer_columns(file_list: ViewColumn) {
+pub fn create_analyzer_columns(file_list: ViewColumn) -> ViewColumn {
     let icon_data_func = Box::new(|_, render, model, iter| {
         let cell = render.clone().downcast().expect("Expected renderer to be CellRenderText");
         let model_val = model.get_value(&iter, 0);
@@ -120,6 +144,7 @@ fn create_analyzer_columns(file_list: ViewColumn) {
         // cell.set_property_text(Some(&formatted_size));
     });
     file_list.children.insert(String::from("Name"), create_column(3, "Size", Some(size_data_func), true));
+    file_list
 }
 
 pub struct AnalyzerModel {

@@ -16,11 +16,11 @@ use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
 
 use super::directory;
-use crate::analyzer;
+use crate::analyzer::{self, ViewColumn};
 use crate::directory::Directory;
 use crate::events::handlers;
 use iced::widget::button::StyleSheet;
-use iced::widget::{button, column, container, pick_list};
+use iced::widget::{button, column, container, pick_list, row};
 use iced::{executor, subscription, window};
 use iced::{theme, Application, Command, Element, Event, Length, Settings, Subscription, Theme};
 
@@ -67,50 +67,15 @@ impl Application for GUI {
             View::DirectoryDisplay => {
                 let dir = &self.dir;
                 let dir_clone = dir.clone();
-                let file_list = ViewColumn::default();
-                analyzer::create_analyzer_columns(&file_list);
-        
-                let file_model = gtk::ListStore::new(&[String::static_type(), String::static_type(), u64::static_type(), u64::static_type()]);
-                let sortable_store = gtk::TreeModelSort::new(&file_model);
-                sortable_store.set_sort_column_id(gtk::SortColumn::Index(3), gtk::SortType::Descending);
-                file_list.set_model(Some(&sortable_store));
-                fill_list_store(&file_model, &model.root);
-        
-                let viewport = gtk::Viewport::new::<gtk::Adjustment, gtk::Adjustment>(None, None);
-                viewport.add(&file_list);
-                
-                let scrolled = gtk::ScrolledWindow::new::<gtk::Adjustment, gtk::Adjustment>(None, None);
-                scrolled.add(&viewport);
-                scrolled.set_vexpand(true);
-        
-                let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
-                vbox.add(&scrolled);
-        
-                let header_bar = gtk::HeaderBar::new();
-                let up_button = gtk::Button::from_icon_name(Some("go-up"), gtk::IconSize::Menu);
-                up_button.set_tooltip_text(Some("Up"));
-                header_bar.set_title(Some("Disk Analyzer"));
-                header_bar.set_subtitle(Some(model.root.lock().unwrap().get_path()));
-                header_bar.set_show_close_button(true);
-                header_bar.pack_start(&up_button);
-                
-                let window = gtk::Window::new(WindowType::Toplevel);
-                window.add(&vbox);
-                window.set_position(gtk::WindowPosition::Center);
-                window.resize(800, 600);
-                window.set_titlebar(Some(&header_bar));
-        
-                connect!(relm, window, connect_delete_event(_, _), return (Some(AnalyzerMsg::Quit), Inhibit(false)));
-                connect!(relm, up_button, connect_clicked(_), AnalyzerMsg::Up);
-                connect!(relm, file_list, connect_row_activated(_, path, _), AnalyzerMsg::RowActivated(path.clone()));
-        
-                AnalyzerWindow {
-                    model,
-                    window,
-                    list_store: file_model,
-                    sort_store: sortable_store,
-                    header_bar: header_bar
-                }
+                let file_list = ViewColumn::default_butt_title(String::from("root"));
+                let file_columns = analyzer::create_analyzer_columns(&file_list);
+                       
+                let header_columns = row![];
+                let directory_page = container(column![header_columns]);
+                container(directory_page)
+                    .height(Length::Fill)
+                    .center_y()
+                    .into()
                 
             }
             View::Start => {
