@@ -69,14 +69,16 @@ impl Application for GUI {
                 let dir_clone = dir.clone();
                 let file_list = ViewColumn::default_butt_title(String::from("root"));
                 let file_columns = analyzer::create_analyzer_columns(&file_list);
-                       
-                let header_columns = row![];
+                let header_columns = file_columns.children.iter().fold(Vec::new(), |acc, (k, v)| {
+                  let cell = container(k);
+                  acc.add(cell);
+                  acc
+                });
                 let directory_page = container(column![header_columns]);
                 container(directory_page)
                     .height(Length::Fill)
                     .center_y()
-                    .into()
-                
+                    .into()                
             }
             View::Start => {
                 let drives_as_strings: Vec<String> = self.paths.keys().cloned().collect();

@@ -45,7 +45,7 @@ pub struct ViewColumn {
     clickable: bool,
     sortable: bool,
     sort_id: Option<String>, // &'static 
-    children: HashMap<String, ViewColumn>,
+    pub children: HashMap<String, ViewColumn>,
     content: Option<String>,
 }
 
