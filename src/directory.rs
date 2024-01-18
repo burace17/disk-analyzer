@@ -5,16 +5,19 @@
 use mime_guess;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fmt;
 use std::fs;
 use std::fs::DirEntry;
+use std::fs::Metadata;
+use std::fs::ReadDir;
 use std::io;
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, Weak};
 use sugar::btreeset;
 use thiserror::Error;
-use fallible_iterator::convert;
+use fallible_iterator::{convert, FallibleIterator};
 #[derive(Error, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ReadError {
     #[error("I/O error")]
@@ -181,36 +184,30 @@ fn read_dir_inner(
     size: &mut u64,
 ) -> Result<(), ReadError> {
     let directory_info = fs::read_dir(&path)?;
-    let existing_directories = directory_info.filter_map(Result::ok);
-    let metadata_for_dirs = convert(existing_directories.map(|dir| dir.metadata()));
-    let x = metadata_for_dirs.map(|md| md.len());
-    // *size = ;
-
-    for entry in directory_info {
-        if let Ok(entry) = entry {
-            let metadata = entry.metadata()?;
-            *size += metadata.len();
-
-            if let Ok(name) = entry.file_name().into_string() {
-                if metadata.is_file() {
-                    let mime = mime_guess::from_path(entry.path())
-                        .first_or_text_plain()
-                        .to_string();
-                    files.insert(File::new(&name, metadata.len(), &mime));
-                } else if metadata.is_dir() {
-                    let dir = read_dir_impl(&entry.path(), directory, &cancel_checker);
-                    // if let Some(e) = dir.lock().unwrap().get_error() {
-                    //     if let ReadError::OperationCancelled = e {
-                    //         return Err(ReadError::OperationCancelled);
-                    //     }
-                    // }
-                    // *size += dir.lock().unwrap().size;
-                    *size += *size;
-                    subdirectories.insert(dir);
-                }
-            }
-        }
+    let existing_directories: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
+    // let mut x = existing_directories.cloned();
+    // let metadata_result_for_dirs = existing_directories.map(|dir| dir.metadata());
+    let metadata_error = existing_directories.iter().find(|directory| directory.metadata().is_err());
+    if metadata_error.is_some() { // todo: better
+      let exit = metadata_error.unwrap().metadata()?;
     }
+    *size += existing_directories.iter().map(|directory| directory.metadata().unwrap().len()).sum::<u64>();
+    let filenames = existing_directories.iter()
+      .map(|dir_entry| dir_entry.file_name().into_string())
+      .filter_map(|arg0: Result<String, OsString>| Result::ok(arg0))
+      ;
+    let directory_files: Vec<&DirEntry> = existing_directories.iter().filter(|directory| directory.metadata().unwrap().is_file()).collect();
+    let read_files = directory_files.iter().map(|dir_entry| {
+      let mime = mime_guess::from_path(dir_entry.path()).first_or_text_plain().to_string();
+      File::new(&dir_entry.file_name().into_string().unwrap(), dir_entry.metadata().unwrap().len(), &mime)
+    }); //todo: better, since filenames is only used here
+
+    read_files.fold(files, |file_list, file| {file_list.insert(file); file_list});
+    let unread_subdirectories: Vec<&DirEntry> = existing_directories.iter().filter(|directory| !directory.metadata().unwrap().is_file()).collect();
+    let total_subdirectories = unread_subdirectories.iter()
+      .map(|subdirectory| read_dir_impl(&subdirectory.path(), directory, cancel_checker));
+    *size += *size * unread_subdirectories.len() as u64;
+    total_subdirectories.fold(subdirectories, |subdir_list, subdir| {subdir_list.insert(subdir); subdir_list});
     Ok(())
 }
 
