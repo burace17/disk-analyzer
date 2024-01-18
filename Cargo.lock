@@ -641,6 +641,7 @@ version = "2024.1.0"
 dependencies = [
  "async-tungstenite",
  "derive_builder",
+ "fallible-iterator",
  "frunk",
  "futures",
  "futures-util",
@@ -729,6 +730,12 @@ checksum = "87f253bc5c813ca05792837a0ff4b3a580336b224512d48f7eda1d7dd9210787"
 dependencies = [
  "num-traits",
 ]
+
+[[package]]
+name = "fallible-iterator"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
 
 [[package]]
 name = "fast-srgb8"

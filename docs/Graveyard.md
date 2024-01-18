@@ -216,3 +216,9 @@
 // fn on_scan_cancel() {
 
 // }
+
+        // Normally this channel should be empty (which is an error, but one we expect)
+        // However if we try to receive and there is no error, that means the user cancelled the scan.
+        // if !cancel_checker.try_recv().is_err() {
+        //     return Err(ReadError::OperationCancelled);
+        // }

@@ -14,7 +14,7 @@ use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, Weak};
 use sugar::btreeset;
 use thiserror::Error;
-
+use fallible_iterator::convert;
 #[derive(Error, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ReadError {
     #[error("I/O error")]
@@ -181,13 +181,12 @@ fn read_dir_inner(
     size: &mut u64,
 ) -> Result<(), ReadError> {
     let directory_info = fs::read_dir(&path)?;
-    for entry in directory_info {
-        // Normally this channel should be empty (which is an error, but one we expect)
-        // However if we try to receive and there is no error, that means the user cancelled the scan.
-        // if !cancel_checker.try_recv().is_err() {
-        //     return Err(ReadError::OperationCancelled);
-        // }
+    let existing_directories = directory_info.filter_map(Result::ok);
+    let metadata_for_dirs = convert(existing_directories.map(|dir| dir.metadata()));
+    let x = metadata_for_dirs.map(|md| md.len());
+    // *size = ;
 
+    for entry in directory_info {
         if let Ok(entry) = entry {
             let metadata = entry.metadata()?;
             *size += metadata.len();
