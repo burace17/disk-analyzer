@@ -156,6 +156,8 @@ impl From<std::io::Error> for ReadError {
     }
 }
 
+
+
 fn read_dir_inner(
     path: &PathBuf, 
     cancel_checker: &Receiver<()>,
@@ -163,12 +165,14 @@ fn read_dir_inner(
     subdirectories: &mut Vec<Directory>,
     files: &mut Vec<File>, 
     size: &mut u64) -> Result<(), ReadError> {
-    for entry in fs::read_dir(&path)? {
+
+    let directory_info = fs::read_dir(&path)?;
+    for entry in directory_info {
         // Normally this channel should be empty (which is an error, but one we expect)
         // However if we try to receive and there is no error, that means the user cancelled the scan.
-        if !cancel_checker.try_recv().is_err() {
-            return Err(ReadError::OperationCancelled);
-        }
+        // if !cancel_checker.try_recv().is_err() {
+        //     return Err(ReadError::OperationCancelled);
+        // }
         
         if let Ok(entry) = entry {
             let metadata = entry.metadata()?;
@@ -203,19 +207,19 @@ fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<(
         None => "".to_string()
     };
 
-    let directory = Directory::new(&root_name, Some(Box::from(parent.clone())), &path.to_string_lossy()); //Arc::new(Mutex::new());
+    let mut directory = Directory::new(&root_name, Some(Box::from(parent.clone())), &path.to_string_lossy()); //Arc::new(Mutex::new());
     let mut subdirectories: Vec<Directory> = Vec::new();
     let mut files: Vec<File> = Vec::new();
     let mut size: u64 = 0;
     let result = read_dir_inner(&path, &cancel_checker, &directory, &mut subdirectories, &mut files, &mut size);
 
     // if let Ok(mut unwrapped_dir) = directory.lock() {
-    //     if let Err(e) = result {
-    //         unwrapped_dir.set_error(Some(e));
-    //     }
-    //     unwrapped_dir.set_subdirectories(subdirectories);
-    //     unwrapped_dir.set_files(files);
-    //     unwrapped_dir.set_size(size);
+        // if let Err(e) = result {
+        //     unwrapped_dir.set_error(Some(e));
+        // }
+        directory.set_subdirectories(subdirectories);
+        directory.set_files(files);
+        directory.set_size(size);
     // }
 
     directory
@@ -242,7 +246,12 @@ fn list_drives() -> HashMap<String, PathBuf> {
             // let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();
 
     let letter_with_path: Vec<(String, PathBuf)> = 
-        drives.iter().map(|s: &String| { (s.clone(), PathBuf::from(s))}).collect();
+        drives.iter().map(|s: &String| { 
+            let drive_as_path = PathBuf::from(s.to_string() + ":"); 
+            let pair = (s.clone(), drive_as_path);
+            pair
+        })
+            .collect();
     let letter_to_path = letter_with_path.into_iter().collect();
     // println!("{:?}", x);
 

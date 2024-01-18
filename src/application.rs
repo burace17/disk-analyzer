@@ -129,8 +129,9 @@ impl Application for GUI {
                         let (send, recv) = channel();
                         self.cancel_sender = Some(send);
 
-                        let selected_path: PathBuf =
-                            self.paths.get(&drive).expect("Letter not found").clone();
+                        let selected_path: PathBuf = PathBuf::from(String::from(r"C:\Users\AJ\Desktop"));
+                            // self.paths.get(&drive).expect("Letter not found").clone();
+
                           let (send, recv) = channel();
                         Command::perform(
                             handlers::on_scan_start(selected_path, recv),
