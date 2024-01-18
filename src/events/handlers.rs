@@ -1,4 +1,4 @@
-use std::{thread, sync::{Arc, Mutex, Weak, mpsc}, path::PathBuf};
+use std::{thread, sync::{Arc, Mutex, Weak, mpsc::{self, Receiver}}, path::PathBuf};
 use futures::{channel::mpsc::Sender, future, stream::FuturesUnordered};
 use iced::Command;
 use crate::{application::ApplicationEvent, directory::{self, Directory}};
@@ -25,9 +25,10 @@ enum State {
 	Ready(mpsc::Receiver<Input>),
 }
 
-pub async fn on_scan_start(file_path: PathBuf) -> Directory {
-	let dir = Directory::new("C", Weak::new(), &"path");
-	// directory::read_dir(&file_path, &recv);
+pub async fn on_scan_start(file_path: PathBuf, recv: Receiver<()>) -> Directory {
+	let dir = 
+	// Directory::new("C", Weak::new(), &"path");
+	directory::read_dir(&file_path, &recv);
 	dir
 	
 	

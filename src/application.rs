@@ -6,7 +6,6 @@
 // use std::sync::{Arc, Mutex};
 // use std::sync::mpsc::{channel, Sender};
 // use super::dir_walker;
-// use super::analyzer;
 #![allow(unused_imports)]
 use std::collections::HashMap;
 use std::io::Error;
@@ -65,15 +64,27 @@ impl Application for GUI {
     fn view(&self) -> Element<ApplicationEvent> {
         match self.view {
             View::DirectoryDisplay => {
-                // let dir = &self.dir;
-                // let dir_clone = dir.clone();
                 let file_list = ViewColumn::default_butt_title(String::from("root"));
                 let file_columns = analyzer::create_analyzer_columns(file_list);
                 let header_view: Row<'_, ApplicationEvent> = row![];
                 let header_columns = file_columns.children.iter().fold(header_view, |acc, (k, v)| {
                   acc.push(text(k))
                 });
-                container(header_columns)
+                let dir = &self.dir;
+                let dir_clone = dir.clone();
+                let directory_content = analyzer::fill_list_store(dir_clone);
+                let directory_list = directory_content.iter().map(|dir_store| {
+                  let icon = "f";
+                  let percent = ((dir_store.inner_size % dir_store.outer_size) * 100).to_string() + "%";
+
+                  let file_row: Row<'_,  ApplicationEvent> = row![text(icon), text(dir_store.name.clone()), text(percent), text(dir_store.inner_size)];
+                  file_row
+                });
+                let directory_column = directory_list.fold(column![], |column, row| {
+                  column.push(row)
+                });
+                let directory_display = column![header_columns, directory_column];
+                container(directory_display)
                     .height(Length::Fill)
                     .center_y()
                     .into()                
@@ -124,8 +135,9 @@ impl Application for GUI {
 
                         let selected_path: PathBuf =
                             self.paths.get(&drive).expect("Letter not found").clone();
+                          let (send, recv) = channel();
                         Command::perform(
-                            handlers::on_scan_start(selected_path),
+                            handlers::on_scan_start(selected_path, recv),
                             ApplicationEvent::ScanFinished,
                         )
                     }

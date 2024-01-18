@@ -61,15 +61,15 @@ impl fmt::Display for File {
 pub struct Directory {
     name: String,
     size: u64,
-    directories: Vec<Arc<Mutex<Directory>>>,
+    directories: Vec<Directory>,
     files: Vec<File>,
-    parent: Weak<Mutex<Directory>>,
+    parent: Option<Box<Directory>>,
     path: String,
     error: Option<ReadError>
 }
 
 impl Directory {
-    pub fn new(name: &str, parent: Weak<Mutex<Directory>>, path: &str) -> Directory {
+    pub fn new(name: &str, parent: Option<Box<Directory>>, path: &str) -> Directory {
         Directory {
             name: name.to_string(),
             size: 0,
@@ -89,7 +89,7 @@ impl Directory {
         self.size
     }
 
-    pub fn get_subdirectories(&self) -> &Vec<Arc<Mutex<Directory>>> {
+    pub fn get_subdirectories(&self) -> &Vec<Directory> {
         &self.directories
     }
 
@@ -97,8 +97,8 @@ impl Directory {
         &self.files
     }
 
-    pub fn get_parent(&self) -> Weak<Mutex<Directory>> {
-        self.parent.clone()
+    pub fn get_parent(&self) -> Directory {
+        *self.parent.unwrap()
     }
 
     pub fn get_path(&self) -> &str {
@@ -113,7 +113,7 @@ impl Directory {
         self.error.is_some()
     }
 
-    fn set_subdirectories(&mut self, subdirs: Vec<Arc<Mutex<Directory>>>) {
+    fn set_subdirectories(&mut self, subdirs: Vec<Directory>) {
         self.directories = subdirs;
     }
 
@@ -131,7 +131,7 @@ impl Directory {
 
 impl fmt::Display for Directory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let sub_strings = self.directories.iter().map(|ent| ent.lock().unwrap().to_string()).collect::<Vec<String>>().join("\n");
+        let sub_strings = self.directories.iter().map(|ent| ent.to_string()).collect::<Vec<String>>().join("\n");
         let file_strings = self.files.iter().map(|ent| ent.to_string()).collect::<Vec<String>>().join("\n");
         write!(f, "----- {} {} ------\n{}\n{}", self.name, self.size, sub_strings, file_strings)
     }
@@ -155,9 +155,13 @@ impl From<std::io::Error> for ReadError {
     }
 }
 
-fn read_dir_inner(path: &PathBuf, cancel_checker: &Receiver<()>,
-                  directory: &Arc<Mutex<Directory>>, subdirectories: &mut Vec<Arc<Mutex<Directory>>>,
-                  files: &mut Vec<File>, size: &mut u64) -> Result<(), ReadError> {
+fn read_dir_inner(
+    path: &PathBuf, 
+    cancel_checker: &Receiver<()>,
+    directory: &Directory, 
+    subdirectories: &mut Vec<Directory>,
+    files: &mut Vec<File>, 
+    size: &mut u64) -> Result<(), ReadError> {
     for entry in fs::read_dir(&path)? {
         // Normally this channel should be empty (which is an error, but one we expect)
         // However if we try to receive and there is no error, that means the user cancelled the scan.
@@ -176,13 +180,14 @@ fn read_dir_inner(path: &PathBuf, cancel_checker: &Receiver<()>,
                     files.push(File::new(&name, metadata.len(), &mime)); 
                 }
                 else if metadata.is_dir() {
-                    let dir = read_dir_impl(&entry.path(), Arc::downgrade(&directory), &cancel_checker);
-                    if let Some(e) = dir.lock().unwrap().get_error() {
-                        if let ReadError::OperationCancelled = e {
-                            return Err(ReadError::OperationCancelled);
-                        }
-                    }
-                    *size += dir.lock().unwrap().size;
+                    let dir = read_dir_impl(&entry.path(), directory, &cancel_checker);
+                    // if let Some(e) = dir.lock().unwrap().get_error() {
+                    //     if let ReadError::OperationCancelled = e {
+                    //         return Err(ReadError::OperationCancelled);
+                    //     }
+                    // }
+                    // *size += dir.lock().unwrap().size;
+                    *size += *size;
                     subdirectories.push(dir);
                 }
             }
@@ -191,33 +196,33 @@ fn read_dir_inner(path: &PathBuf, cancel_checker: &Receiver<()>,
     Ok(())
 }
 
-fn read_dir_impl(path: &PathBuf, parent: Weak<Mutex<Directory>>, cancel_checker: &Receiver<()>) -> Arc<Mutex<Directory>> {
+fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<()>) -> Directory {
     let root_name = match path_get_file_name(&path) {
         Some(n) => n,
         None => "".to_string()
     };
 
-    let directory = Arc::new(Mutex::new(Directory::new(&root_name, parent, &path.to_string_lossy())));
-    let mut subdirectories: Vec<Arc<Mutex<Directory>>> = Vec::new();
+    let directory = Directory::new(&root_name, Some(Box::from(parent.clone())), &path.to_string_lossy()); //Arc::new(Mutex::new());
+    let mut subdirectories: Vec<Directory> = Vec::new();
     let mut files: Vec<File> = Vec::new();
     let mut size: u64 = 0;
     let result = read_dir_inner(&path, &cancel_checker, &directory, &mut subdirectories, &mut files, &mut size);
 
-    if let Ok(mut unwrapped_dir) = directory.lock() {
-        if let Err(e) = result {
-            unwrapped_dir.set_error(Some(e));
-        }
-        unwrapped_dir.set_subdirectories(subdirectories);
-        unwrapped_dir.set_files(files);
-        unwrapped_dir.set_size(size);
-    }
+    // if let Ok(mut unwrapped_dir) = directory.lock() {
+    //     if let Err(e) = result {
+    //         unwrapped_dir.set_error(Some(e));
+    //     }
+    //     unwrapped_dir.set_subdirectories(subdirectories);
+    //     unwrapped_dir.set_files(files);
+    //     unwrapped_dir.set_size(size);
+    // }
 
     directory
 }
 
 
-pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Arc<Mutex<Directory>> {
-    read_dir_impl(path, Weak::new(), &cancel_checker)
+pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Directory {
+    read_dir_impl(path, &Directory::new("empty", None, path.to_str().expect("no path provided")), &cancel_checker)
 }
 use winapi::um::fileapi::GetLogicalDrives;
 

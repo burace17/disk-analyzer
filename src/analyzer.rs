@@ -13,48 +13,47 @@ static ERROR_ICON: &str = "dialog-error";
 
 // type CellDataFunc = Box<dyn Fn(&gtk::TreeViewColumn, &gtk::CellRenderer, &gtk::TreeModel, &gtk::TreeIter) + 'static>;
 #[derive(Clone, Builder)]
-struct DirStore {
-    icon: &'static str,
-    name: &'static str,
-    outer_size: u64,
-    inner_size: u64,
+pub struct DirStore {
+    pub icon: String,
+    pub name: String,
+    pub outer_size: u64,
+    pub inner_size: u64,
 }
 
-// fn fill_list_store(dir: Directory) -> Vec<DirStore> {
-//     // let current_directory = dir.lock().unwrap();
-//     let current_directory = dir.clone();
-//     let current_directory_size = current_directory.get_size();
-//     let t = current_directory.get_subdirectories();
-//     let f = current_directory.get_files();
-//     let mut store_list = Vec::new();
-//     for sub in t {
-//         let subdir = sub.lock().unwrap();
-//         if subdir.has_error() {
-//             store_list.push(DirStore { 
-//                 icon: &ERROR_ICON, 
-//                 name: &subdir.get_name(), 
-//                 outer_size: current_directory_size, 
-//                 inner_size: subdir.get_size() });
-//         }
-//         else {
-//             store_list.push(DirStore {
-//                 icon: &FOLDER_ICON, 
-//                 name: &subdir.get_name(), 
-//                 outer_size: current_directory_size, 
-//                 inner_size: subdir.get_size()
-//             });
-//         }
-//     }
-//     for file in f {
-//         store_list.push(DirStore {
-//             icon: &file.get_mime(), 
-//             name: &file.get_name(), 
-//             outer_size: current_directory_size, 
-//             inner_size: file.get_size()
-//         });
-//         };
-//     store_list    
-// }
+pub(crate) fn fill_list_store(dir: Directory) -> Vec<DirStore> {
+    let current_directory = dir.clone();
+    let current_directory_size = current_directory.get_size();
+    let t = current_directory.get_subdirectories();
+    let f = current_directory.get_files();
+    let mut store_list = Vec::new();
+    for sub in t {
+        let subdir = sub.lock().unwrap();
+        if subdir.has_error() {
+            store_list.push(DirStore { 
+                icon: String::from(ERROR_ICON), 
+                name: String::from(subdir.get_name()), 
+                outer_size: current_directory_size, 
+                inner_size: subdir.get_size() });
+        }
+        else {
+            store_list.push(DirStore {
+                icon: String::from(FOLDER_ICON), 
+                name: String::from(subdir.get_name()), 
+                outer_size: current_directory_size, 
+                inner_size: subdir.get_size()
+            });
+        }
+    }
+    for file in f {
+        store_list.push(DirStore {
+            icon: String::from(file.get_mime()), 
+            name: String::from(file.get_name()), 
+            outer_size: current_directory_size, 
+            inner_size: file.get_size()
+        });
+        };
+    store_list    
+}
 #[derive(Clone, Builder)]
 pub struct ViewColumn {
     pack_start: bool,
