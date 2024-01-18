@@ -7,13 +7,11 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_must_use)]
+
 mod application;
-mod directory;
+mod display;
 mod events;
-mod frontend {
-    mod styling;
-}
-mod analyzer;
+mod logic;
 #[macro_use]
 extern crate derive_builder;
 

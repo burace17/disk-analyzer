@@ -222,3 +222,75 @@
         // if !cancel_checker.try_recv().is_err() {
         //     return Err(ReadError::OperationCancelled);
         // }
+
+// pub struct ConfigModel {
+//     path: Option<std::path::PathBuf>,
+//     relm: Relm<ConfigWindow>
+// }
+// #[derive(Msg)]
+// pub enum ConfigMsg {
+//     Quit,
+//     GotPath(Option<std::path::PathBuf>),
+//     StartScan,
+//     GotResults(Arc<Mutex<dir_walker::Directory>>),
+//     CancelScan
+// }
+//  impl Widget for ConfigWindow {
+//     type Root = Window;
+//     fn root(&self) -> Self::Root {
+//         self.window.clone()
+//     }
+//     fn view(relm: &Relm<Self>, model: Self::Model) -> Self {
+//         let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+//         let file_chooser = gtk::FileChooserButton::new("Choose directory", gtk::FileChooserAction::SelectFolder);
+//         let scan_button = gtk::Button::new();
+//         scan_button.set_label("Scan");
+//         let cancel_button = gtk::Button::new();
+//         cancel_button.set_label("Cancel");
+//         cancel_button.set_sensitive(false);
+//         vbox.add(&file_chooser);
+//         vbox.add(&scan_button);
+//         vbox.add(&cancel_button);
+//         vbox.set_spacing(10);
+//         let window = gtk::Window::new(WindowType::Toplevel);
+//         window.set_title("Choose a directory to scan");
+//         window.add(&vbox);
+//         window.set_position(gtk::WindowPosition::Center);
+//         window.resize(300, 75);
+//         window.show_all();
+//         connect!(relm, scan_button, connect_clicked(_), ConfigMsg::StartScan);
+//         connect!(relm, cancel_button, connect_clicked(_), ConfigMsg::CancelScan);
+//         connect!(relm, file_chooser, connect_file_set(btn), ConfigMsg::GotPath(btn.get_filename()));
+//         connect!(relm, window, connect_delete_event(_, _), return (Some(ConfigMsg::Quit), Inhibit(false)));
+//         ConfigWindow {
+//             model,
+//             window,
+//             file_chooser,
+//             scan_button,
+//             analyzer_win: None,
+//             cancel_sender: None,
+//             cancel_button
+//         }
+//     }
+// }
+
+// impl Update for ConfigWindow {
+//     type Model = ConfigModel;
+//     type ModelParam = ();
+//     type Msg = ConfigMsg;
+//     fn model(relm: &Relm<Self>, _: ()) -> ConfigModel {
+//         ConfigModel {
+//             path: None,
+//             relm: relm.clone()
+//         }
+//     }
+//     fn update(&mut self, event: ConfigMsg) {
+//         match event {
+//             ConfigMsg::Quit => gtk::main_quit(),
+//             ConfigMsg::GotPath(path) => self.model.path = path,
+//             ConfigMsg::StartScan => self.on_scan_start(),
+//             ConfigMsg::GotResults(result) => self.on_scan_complete(result),
+//             ConfigMsg::CancelScan => self.on_scan_cancel()
+//         }
+//     }
+// }
