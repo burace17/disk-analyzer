@@ -30,8 +30,6 @@ pub async fn on_scan_start(file_path: PathBuf, recv: Receiver<()>) -> Directory 
 	// Directory::new("C", Weak::new(), &"path");
 	directory::read_dir(&file_path, &recv);
 	dir
-	
-	
 }
 
 // fn on_scan_complete(&mut self, dir: Arc<Mutex<directory::Directory>>) {

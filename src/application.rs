@@ -42,10 +42,6 @@ impl Application for GUI {
     type Flags = ();
     type Message = ApplicationEvent;
     type Theme = Theme;
-    // todo: where default come from and what it do?
-    // __x: () = unused variable with unspecified type
-    // in contrast to
-    // y: int
     fn new(__flags: ()) -> (GUI, Command<ApplicationEvent>) {
         (
             GUI {
@@ -178,15 +174,6 @@ impl Application for GUI {
             }
         }
     }
-    //     fn subscription(&self) -> Subscription<ApplicationEvent> {
-    //         // handlers::connect().map(ApplicationEvent::ScanEvent)
-    //         let selected_path: PathBuf = self.paths
-    //         .get("C")
-    //         .expect("Letter not found")
-    //         .clone();
-    //         handlers::some_worker().map(ApplicationEvent::ScanEvent)
-    //         // subscription::events().map(ApplicationEvent::IcedEvent)
-    //     }
 }
 
 pub fn run(settings: Settings<<GUI as iced::Application>::Flags>) -> Result<(), iced::Error> {

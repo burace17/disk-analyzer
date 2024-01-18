@@ -97,9 +97,10 @@ impl Directory {
         &self.files
     }
 
-    pub fn get_parent(&self) -> Directory {
-        *self.parent.unwrap()
-    }
+    // pub fn get_parent(&self) -> Directory {
+    //     let boxed_dir = self.parent.unwrap();
+    //     boxed_dir.clone()
+    // }
 
     pub fn get_path(&self) -> &str {
         &self.path

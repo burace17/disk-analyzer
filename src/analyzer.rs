@@ -27,7 +27,7 @@ pub(crate) fn fill_list_store(dir: Directory) -> Vec<DirStore> {
     let f = current_directory.get_files();
     let mut store_list = Vec::new();
     for sub in t {
-        let subdir = sub.lock().unwrap();
+        let subdir = sub;
         if subdir.has_error() {
             store_list.push(DirStore { 
                 icon: String::from(ERROR_ICON), 
