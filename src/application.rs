@@ -10,12 +10,13 @@ use std::path::PathBuf;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
 
-// use super::directory;
-// use crate::analyzer::{self, ViewColumn};
-// use crate::directory::Directory;
-// use crate::events::handlers::{self, on_scan_request};
-
-
+use crate::logic::directory::get_computer_drives;
+use crate::logic::{
+  directory::Directory, 
+  analyzer::ViewColumn
+};
+use crate::display::views::{directory, start};
+use crate::events::handlers::{self, on_scan_request};
 
 use iced::widget::button::StyleSheet;
 use iced::widget::{button, column, container, pick_list, row, text, Column, Container, Row, Text};
@@ -25,13 +26,13 @@ use iced::{theme, Application, Command, Element, Event, Length, Settings, Subscr
 #[derive(Default)]
 pub struct GUI {
     view: View,
-    dir: Directory,
+    pub dir: Directory,
     scan_finished: bool,
-    cancel_sender: Option<Sender<()>>,
-    paths: HashMap<String, PathBuf>,
-    scanning: bool,
-    pressed_cancel: bool,
-    selected_drive: Option<String>,
+    pub cancel_sender: Option<Sender<()>>,
+    pub paths: HashMap<String, PathBuf>,
+    pub scanning: bool,
+    pub pressed_cancel: bool,
+    pub selected_drive: Option<String>,
 }
 // use super::events::handlers::on_scan_start;
 
@@ -48,7 +49,7 @@ impl Application for GUI {
                 scan_finished: false,
                 cancel_sender: None,
                 dir: Directory::default(),
-                paths: directory::get_computer_drives(),
+                paths: get_computer_drives(),
                 scanning: false,
                 pressed_cancel: false,
                 selected_drive: None,
@@ -58,8 +59,8 @@ impl Application for GUI {
     }
     fn view(&self) -> Element<ApplicationEvent> {
         match self.view {
-            View::DirectoryDisplay => display_directory_view(self),
-            View::Start => display_starting_view(self)
+            View::DirectoryDisplay => directory::directory_display_view(self),
+            View::Start => start::display_starting_view(self)
         }
     }
     fn title(&self) -> String {
@@ -130,6 +131,6 @@ pub enum ApplicationEvent {
     RequestedScan,
     RequestedCancel,
     Start,
-    ScanFinished(directory::Directory),
+    ScanFinished(Directory),
     IcedEvent(iced::Event), // couldn't use
 }

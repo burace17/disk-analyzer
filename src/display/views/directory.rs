@@ -1,4 +1,8 @@
-fn directory_display_view(app: &mut GUI) -> Element<ApplicationEvent> {
+use iced::{Element, widget::{Row, row, column, text, container}, Length};
+
+use crate::{application::{GUI, ApplicationEvent}, logic::analyzer::{ViewColumn, self}};
+
+pub fn directory_display_view(app: &GUI) -> Element<ApplicationEvent> {
 	let file_list = ViewColumn::default_butt_title(String::from("root"));
 	let file_columns = analyzer::create_analyzer_columns(file_list);
 	let header_view: Row<'_, ApplicationEvent> = row![];
@@ -6,7 +10,7 @@ fn directory_display_view(app: &mut GUI) -> Element<ApplicationEvent> {
 			.children
 			.iter()
 			.fold(header_view, |acc, (k, v)| acc.push(text(k)));
-	let dir = &self.dir;
+	let dir = &app.dir;
 	let dir_clone = dir.clone();
 	let directory_content = analyzer::fill_list_store(dir_clone);
 	let directory_list = directory_content.iter().map(|dir_store| {

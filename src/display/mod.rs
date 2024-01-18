@@ -1,2 +1,2 @@
-mod styling;
-mod views;
+pub mod styling;
+pub mod views;

@@ -1,6 +1,5 @@
 use crate::{
-    application::{ApplicationEvent, GUI},
-    directory::{self, Directory},
+    application::{ApplicationEvent, GUI}, logic::directory::{Directory, read_dir},
 };
 use async_tungstenite::tungstenite;
 use futures::{channel::mpsc::Sender, future, stream::FuturesUnordered};
@@ -9,14 +8,14 @@ use iced::Command;
 use std::{
     path::PathBuf,
     sync::{
-        mpsc::{self, Receiver},
+        mpsc::{self, Receiver, channel},
         Arc, Mutex, Weak,
     },
     thread,
 };
 
 pub async fn on_scan_start(file_path: PathBuf, recv: Receiver<()>) -> Directory {
-    let dir = directory::read_dir(&file_path, &recv);
+    let dir = read_dir(&file_path, &recv);
     dir
 }
 
@@ -35,7 +34,7 @@ pub fn on_scan_request(app: &mut GUI) -> Command<ApplicationEvent> {
 
                 let (send, recv) = channel();
                 Command::perform(
-                    handlers::on_scan_start(selected_path, recv),
+                    on_scan_start(selected_path, recv),
                     ApplicationEvent::ScanFinished,
                 )
             }

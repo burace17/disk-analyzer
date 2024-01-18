@@ -29,7 +29,7 @@ impl Default for Start {
 	}
 }
 
-fn display_starting_view(app: &mut GUI) -> Element<ApplicationEvent> {
+pub fn display_starting_view(app: &GUI) -> Element<ApplicationEvent> {
 	let drives_as_strings: Vec<String> = self.paths.keys().cloned().collect();
 	let directory_list = pick_list(
 			drives_as_strings,

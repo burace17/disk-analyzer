@@ -4,7 +4,7 @@
 use humansize::WINDOWS;
 // use humansize;
 use super::directory;
-use crate::{application::View, directory::Directory};
+use crate::logic::directory::Directory;
 use iter_set::symmetric_difference;
 use std::{
     collections::{BTreeSet, HashMap},

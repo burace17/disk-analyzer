@@ -1,2 +1,2 @@
-mod analyzer;
-mod directory;
+pub mod analyzer;
+pub mod directory;
