@@ -258,17 +258,12 @@ use winapi::um::fileapi::GetLogicalDrives;
 //todo bonus: pass in DWORD
 fn list_drives() -> HashMap<String, PathBuf> {
     let bitmask = unsafe { GetLogicalDrives() }; // DWORD
-
-    let mut drives = Vec::new();
-    for drive_index in 0..26 {
-        let mask = 1 << drive_index;
-        if bitmask & mask != 0 {
-            let drive_letter = (b'A' + drive_index as u8) as char;
-            drives.push(drive_letter.to_string());
-        }
-    }
-    // let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();
-
+    let letter_masks = 0..26;
+    let drives = letter_masks
+      .map(|drive_index| (drive_index, 1 << drive_index))
+      .filter(|(_, mask)| bitmask & mask != 0)
+      .map(|(d_index, _)| (b'A' + d_index as u8) as char)
+      .fold(Vec::new(), |mut drive_list, d_letter| {drive_list.push(d_letter.to_string()); drive_list});
     let letter_with_path: Vec<(String, PathBuf)> = drives
         .iter()
         .map(|s: &String| {
@@ -278,8 +273,6 @@ fn list_drives() -> HashMap<String, PathBuf> {
         })
         .collect();
     let letter_to_path = letter_with_path.into_iter().collect();
-    // println!("{:?}", x);
-
     letter_to_path
 }
 
