@@ -19,7 +19,7 @@ use crate::analyzer::{self, ViewColumn};
 use crate::directory::Directory;
 use crate::events::handlers;
 use iced::widget::button::StyleSheet;
-use iced::widget::{button, column, container, pick_list, row, text, Container, Text, Column, Row};
+use iced::widget::{button, column, container, pick_list, row, text, Column, Container, Row, Text};
 use iced::{executor, subscription, window, Renderer};
 use iced::{theme, Application, Command, Element, Event, Length, Settings, Subscription, Theme};
 
@@ -63,27 +63,33 @@ impl Application for GUI {
                 let file_list = ViewColumn::default_butt_title(String::from("root"));
                 let file_columns = analyzer::create_analyzer_columns(file_list);
                 let header_view: Row<'_, ApplicationEvent> = row![];
-                let header_columns = file_columns.children.iter().fold(header_view, |acc, (k, v)| {
-                  acc.push(text(k))
-                });
+                let header_columns = file_columns
+                    .children
+                    .iter()
+                    .fold(header_view, |acc, (k, v)| acc.push(text(k)));
                 let dir = &self.dir;
                 let dir_clone = dir.clone();
                 let directory_content = analyzer::fill_list_store(dir_clone);
                 let directory_list = directory_content.iter().map(|dir_store| {
-                  let icon = "f";
-                  let percent = ((dir_store.inner_size % dir_store.outer_size) * 100).to_string() + "%";
+                    let icon = "f";
+                    let percent =
+                        ((dir_store.inner_size % dir_store.outer_size) * 100).to_string() + "%";
 
-                  let file_row: Row<'_,  ApplicationEvent> = row![text(icon), text(dir_store.name.clone()), text(percent), text(dir_store.inner_size)];
-                  file_row
+                    let file_row: Row<'_, ApplicationEvent> = row![
+                        text(icon),
+                        text(dir_store.name.clone()),
+                        text(percent),
+                        text(dir_store.inner_size)
+                    ];
+                    file_row
                 });
-                let directory_column = directory_list.fold(column![], |column, row| {
-                  column.push(row)
-                });
+                let directory_column =
+                    directory_list.fold(column![], |column, row| column.push(row));
                 let directory_display = column![header_columns, directory_column];
                 container(directory_display)
                     .height(Length::Fill)
                     .center_y()
-                    .into()                
+                    .into()
             }
             View::Start => {
                 let drives_as_strings: Vec<String> = self.paths.keys().cloned().collect();
@@ -129,10 +135,11 @@ impl Application for GUI {
                         let (send, recv) = channel();
                         self.cancel_sender = Some(send);
 
-                        let selected_path: PathBuf = PathBuf::from(String::from(r"C:\Users\AJ\Desktop"));
-                            // self.paths.get(&drive).expect("Letter not found").clone();
+                        let selected_path: PathBuf =
+                            PathBuf::from(String::from(r"C:\Users\AJ\Desktop"));
+                        // self.paths.get(&drive).expect("Letter not found").clone();
 
-                          let (send, recv) = channel();
+                        let (send, recv) = channel();
                         Command::perform(
                             handlers::on_scan_start(selected_path, recv),
                             ApplicationEvent::ScanFinished,
@@ -183,7 +190,7 @@ pub fn run(settings: Settings<<GUI as iced::Application>::Flags>) -> Result<(), 
 
 #[derive(Default, Debug)]
 pub enum View {
-  #[default]
+    #[default]
     Start,
     DirectoryDisplay,
 }

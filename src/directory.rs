@@ -8,12 +8,12 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::fs::DirEntry;
-use std::path::PathBuf;
-use std::sync::{Arc, Weak, Mutex};
-use std::sync::mpsc::Receiver;
-use thiserror::Error;
-use sugar::btreeset;
 use std::io;
+use std::path::PathBuf;
+use std::sync::mpsc::Receiver;
+use std::sync::{Arc, Mutex, Weak};
+use sugar::btreeset;
+use thiserror::Error;
 
 #[derive(Error, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ReadError {
@@ -27,7 +27,7 @@ pub enum ReadError {
 pub struct File {
     name: String,
     size: u64,
-    mime: String
+    mime: String,
 }
 
 impl File {
@@ -35,7 +35,7 @@ impl File {
         File {
             name: name.to_string(),
             size: size,
-            mime: mime.to_string()
+            mime: mime.to_string(),
         }
     }
 
@@ -66,7 +66,7 @@ pub struct Directory {
     files: BTreeSet<File>,
     parent: Option<Box<Directory>>,
     path: String,
-    error: Option<ReadError>
+    error: Option<ReadError>,
 }
 
 impl Directory {
@@ -78,7 +78,7 @@ impl Directory {
             files: btreeset![],
             parent: parent,
             path: path.to_string(),
-            error: None
+            error: None,
         }
     }
 
@@ -133,22 +133,37 @@ impl Directory {
 
 impl fmt::Display for Directory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let sub_strings = self.directories.iter().map(|ent| ent.to_string()).collect::<Vec<String>>().join("\n");
-        let file_strings = self.files.iter().map(|ent| ent.to_string()).collect::<Vec<String>>().join("\n");
-        write!(f, "----- {} {} ------\n{}\n{}", self.name, self.size, sub_strings, file_strings)
+        let sub_strings = self
+            .directories
+            .iter()
+            .map(|ent| ent.to_string())
+            .collect::<Vec<String>>()
+            .join("\n");
+        let file_strings = self
+            .files
+            .iter()
+            .map(|ent| ent.to_string())
+            .collect::<Vec<String>>()
+            .join("\n");
+        write!(
+            f,
+            "----- {} {} ------\n{}\n{}",
+            self.name, self.size, sub_strings, file_strings
+        )
     }
 }
 
 fn path_get_file_name(path: &PathBuf) -> Option<String> {
-    if let Some(osstr) = path.file_name() {
-        match osstr.to_os_string().into_string() {
-            Ok(file_name) => Some(file_name),
-            Err(_) => None
-        }
-    }
-    else {
-        None
-    }
+    let path_file_name = path
+        .file_name()
+        .ok_or("Path has no filename")
+        .map(|os_string| {
+            os_string
+                .to_os_string()
+                .into_string()
+                .unwrap_or(String::from("Could not convert to os string"))
+        });
+    path_file_name.ok()
 }
 
 impl From<std::io::Error> for ReadError {
@@ -158,13 +173,13 @@ impl From<std::io::Error> for ReadError {
 }
 
 fn read_dir_inner(
-    path: &PathBuf, 
+    path: &PathBuf,
     cancel_checker: &Receiver<()>,
-    directory: &Directory, 
+    directory: &Directory,
     subdirectories: &mut BTreeSet<Directory>,
-    files: &mut BTreeSet<File>, 
-    size: &mut u64) -> Result<(), ReadError> {
-
+    files: &mut BTreeSet<File>,
+    size: &mut u64,
+) -> Result<(), ReadError> {
     let directory_info = fs::read_dir(&path)?;
     for entry in directory_info {
         // Normally this channel should be empty (which is an error, but one we expect)
@@ -172,18 +187,18 @@ fn read_dir_inner(
         // if !cancel_checker.try_recv().is_err() {
         //     return Err(ReadError::OperationCancelled);
         // }
-        
+
         if let Ok(entry) = entry {
             let metadata = entry.metadata()?;
             *size += metadata.len();
 
             if let Ok(name) = entry.file_name().into_string() {
                 if metadata.is_file() {
-                    let mime = mime_guess::from_path(entry.path()).first_or_text_plain()
-                                                                  .to_string();
-                    files.insert(File::new(&name, metadata.len(), &mime)); 
-                }
-                else if metadata.is_dir() {
+                    let mime = mime_guess::from_path(entry.path())
+                        .first_or_text_plain()
+                        .to_string();
+                    files.insert(File::new(&name, metadata.len(), &mime));
+                } else if metadata.is_dir() {
                     let dir = read_dir_impl(&entry.path(), directory, &cancel_checker);
                     // if let Some(e) = dir.lock().unwrap().get_error() {
                     //     if let ReadError::OperationCancelled = e {
@@ -203,30 +218,44 @@ fn read_dir_inner(
 fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<()>) -> Directory {
     let root_name = match path_get_file_name(&path) {
         Some(n) => n,
-        None => "".to_string()
+        None => "".to_string(),
     };
 
-    let mut directory = Directory::new(&root_name, Some(Box::from(parent.clone())), &path.to_string_lossy()); //Arc::new(Mutex::new());
+    let mut directory = Directory::new(
+        &root_name,
+        Some(Box::from(parent.clone())),
+        &path.to_string_lossy(),
+    ); //Arc::new(Mutex::new());
     let mut subdirectories: BTreeSet<Directory> = BTreeSet::new();
     let mut files: BTreeSet<File> = BTreeSet::new();
     let mut size: u64 = 0;
-    let result = read_dir_inner(&path, &cancel_checker, &directory, &mut subdirectories, &mut files, &mut size);
+    let result = read_dir_inner(
+        &path,
+        &cancel_checker,
+        &directory,
+        &mut subdirectories,
+        &mut files,
+        &mut size,
+    );
 
     // if let Ok(mut unwrapped_dir) = directory.lock() {
-        // if let Err(e) = result {
-        //     unwrapped_dir.set_error(Some(e));
-        // }
-        directory.set_subdirectories(subdirectories);
-        directory.set_files(files);
-        directory.set_size(size);
+    // if let Err(e) = result {
+    //     unwrapped_dir.set_error(Some(e));
+    // }
+    directory.set_subdirectories(subdirectories);
+    directory.set_files(files);
+    directory.set_size(size);
     // }
 
     directory
 }
 
-
 pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Directory {
-    read_dir_impl(path, &Directory::new("empty", None, path.to_str().expect("no path provided")), &cancel_checker)
+    read_dir_impl(
+        path,
+        &Directory::new("empty", None, path.to_str().expect("no path provided")),
+        &cancel_checker,
+    )
 }
 use winapi::um::fileapi::GetLogicalDrives;
 
@@ -242,15 +271,16 @@ fn list_drives() -> HashMap<String, PathBuf> {
             drives.push(drive_letter.to_string());
         }
     }
-            // let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();
+    // let options: Vec<String> = vec!["a", "b", "c"].iter().map(|&s| String::from(s)).collect();
 
-    let letter_with_path: Vec<(String, PathBuf)> = 
-        drives.iter().map(|s: &String| { 
-            let drive_as_path = PathBuf::from(s.to_string() + ":"); 
+    let letter_with_path: Vec<(String, PathBuf)> = drives
+        .iter()
+        .map(|s: &String| {
+            let drive_as_path = PathBuf::from(s.to_string() + ":");
             let pair = (s.clone(), drive_as_path);
             pair
         })
-            .collect();
+        .collect();
     let letter_to_path = letter_with_path.into_iter().collect();
     // println!("{:?}", x);
 

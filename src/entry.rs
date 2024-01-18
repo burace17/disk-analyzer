@@ -10,8 +10,9 @@
 mod application;
 mod directory;
 mod events;
-mod frontend { mod styling; }
-mod lib { mod curry; }
+mod frontend {
+    mod styling;
+}
 mod analyzer;
 #[macro_use]
 extern crate derive_builder;
@@ -22,7 +23,7 @@ use iced::Settings;
 #[start]
 // fn main(x: isize, y: *const *const u8) -> iced::Result {
 fn init(_x: isize, _b: *const *const u8) -> isize {
-// fn main() -> iced::Result {
-   application::run(Settings::default());
-   0
+    // fn main() -> iced::Result {
+    application::run(Settings::default());
+    0
 }
