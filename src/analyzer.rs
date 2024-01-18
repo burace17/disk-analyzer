@@ -4,15 +4,16 @@
 
 use humansize::WINDOWS;
 // use humansize;
-use std::{sync::{Arc, Weak, Mutex}, collections::HashMap, path::PathBuf};
+use std::{sync::{Arc, Weak, Mutex}, collections::{HashMap, BTreeSet}, path::PathBuf};
 use crate::{directory::Directory, application::View};
 use super::directory;
-
+use super::curry;
+use iter_set::symmetric_difference;
 static FOLDER_ICON: &str = "folder";
 static ERROR_ICON: &str = "dialog-error";
 
 // type CellDataFunc = Box<dyn Fn(&gtk::TreeViewColumn, &gtk::CellRenderer, &gtk::TreeModel, &gtk::TreeIter) + 'static>;
-#[derive(Clone, Builder)]
+#[derive(Clone, Builder, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DirStore {
     pub icon: String,
     pub name: String,
@@ -20,38 +21,35 @@ pub struct DirStore {
     pub inner_size: u64,
 }
 
-pub(crate) fn fill_list_store(dir: Directory) -> Vec<DirStore> {
+pub fn fill_list_store(dir: Directory) -> BTreeSet<DirStore> {
     let current_directory = dir.clone();
     let current_directory_size = current_directory.get_size();
-    let t = current_directory.get_subdirectories();
-    let f = current_directory.get_files();
-    let mut store_list = Vec::new();
-    for sub in t {
-        let subdir = sub;
-        if subdir.has_error() {
-            store_list.push(DirStore { 
-                icon: String::from(ERROR_ICON), 
-                name: String::from(subdir.get_name()), 
-                outer_size: current_directory_size, 
-                inner_size: subdir.get_size() });
-        }
-        else {
-            store_list.push(DirStore {
-                icon: String::from(FOLDER_ICON), 
-                name: String::from(subdir.get_name()), 
-                outer_size: current_directory_size, 
-                inner_size: subdir.get_size()
-            });
-        }
-    }
-    for file in f {
-        store_list.push(DirStore {
+    let current_sub_directories = current_directory.get_subdirectories();
+    let make_store_by_icon = curry!(|icon: &str, subdir: &Directory| -> DirStore {DirStore {
+        icon: String::from(icon),
+        name: String::from(subdir.get_name()), 
+        outer_size: current_directory_size, 
+        inner_size: subdir.get_size(), }});
+    let error_dirs = current_sub_directories.iter().filter(|subdir| subdir.has_error()).cloned().collect();
+    let valid_stores = current_sub_directories.difference(&error_dirs)
+        .map(|subdir| make_store_by_icon(FOLDER_ICON)(subdir)).collect();
+    let error_stores = error_dirs.iter()
+        .map(|subdir| make_store_by_icon(ERROR_ICON)(subdir))
+        .collect::<BTreeSet<DirStore>>();
+    let dir_stores = error_stores
+        .union(&valid_stores)
+        .cloned()
+        .collect::<BTreeSet<DirStore>>();
+    let current_directory_files = current_directory.get_files();
+    let file_stores: BTreeSet<DirStore> = current_directory_files.iter()
+        .map(|file| {DirStore {
             icon: String::from(file.get_mime()), 
             name: String::from(file.get_name()), 
             outer_size: current_directory_size, 
             inner_size: file.get_size()
-        });
-        };
+        }})
+        .collect();
+    let store_list = dir_stores.union(&file_stores).cloned().collect::<BTreeSet<DirStore>>();
     store_list    
 }
 #[derive(Clone, Builder)]

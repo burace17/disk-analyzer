@@ -11,6 +11,7 @@ mod application;
 mod directory;
 mod events;
 mod frontend { mod styling; }
+mod lib { mod curry; }
 mod analyzer;
 #[macro_use]
 extern crate derive_builder;

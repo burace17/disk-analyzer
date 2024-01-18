@@ -3,6 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use mime_guess;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
@@ -11,10 +12,10 @@ use std::path::PathBuf;
 use std::sync::{Arc, Weak, Mutex};
 use std::sync::mpsc::Receiver;
 use thiserror::Error;
-
+use sugar::btreeset;
 use std::io;
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ReadError {
     #[error("I/O error")]
     IOError(std::io::ErrorKind),
@@ -22,7 +23,7 @@ pub enum ReadError {
     OperationCancelled,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct File {
     name: String,
     size: u64,
@@ -57,12 +58,12 @@ impl fmt::Display for File {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct Directory {
     name: String,
     size: u64,
-    directories: Vec<Directory>,
-    files: Vec<File>,
+    directories: BTreeSet<Directory>,
+    files: BTreeSet<File>,
     parent: Option<Box<Directory>>,
     path: String,
     error: Option<ReadError>
@@ -73,8 +74,8 @@ impl Directory {
         Directory {
             name: name.to_string(),
             size: 0,
-            directories: vec![],
-            files: vec![],
+            directories: btreeset![],
+            files: btreeset![],
             parent: parent,
             path: path.to_string(),
             error: None
@@ -89,11 +90,11 @@ impl Directory {
         self.size
     }
 
-    pub fn get_subdirectories(&self) -> &Vec<Directory> {
+    pub fn get_subdirectories(&self) -> &BTreeSet<Directory> {
         &self.directories
     }
 
-    pub fn get_files(&self) -> &Vec<File> {
+    pub fn get_files(&self) -> &BTreeSet<File> {
         &self.files
     }
 
@@ -114,11 +115,11 @@ impl Directory {
         self.error.is_some()
     }
 
-    fn set_subdirectories(&mut self, subdirs: Vec<Directory>) {
+    fn set_subdirectories(&mut self, subdirs: BTreeSet<Directory>) {
         self.directories = subdirs;
     }
 
-    fn set_files(&mut self, files: Vec<File>) {
+    fn set_files(&mut self, files: BTreeSet<File>) {
         self.files = files;
     }
 
@@ -156,14 +157,12 @@ impl From<std::io::Error> for ReadError {
     }
 }
 
-
-
 fn read_dir_inner(
     path: &PathBuf, 
     cancel_checker: &Receiver<()>,
     directory: &Directory, 
-    subdirectories: &mut Vec<Directory>,
-    files: &mut Vec<File>, 
+    subdirectories: &mut BTreeSet<Directory>,
+    files: &mut BTreeSet<File>, 
     size: &mut u64) -> Result<(), ReadError> {
 
     let directory_info = fs::read_dir(&path)?;
@@ -182,7 +181,7 @@ fn read_dir_inner(
                 if metadata.is_file() {
                     let mime = mime_guess::from_path(entry.path()).first_or_text_plain()
                                                                   .to_string();
-                    files.push(File::new(&name, metadata.len(), &mime)); 
+                    files.insert(File::new(&name, metadata.len(), &mime)); 
                 }
                 else if metadata.is_dir() {
                     let dir = read_dir_impl(&entry.path(), directory, &cancel_checker);
@@ -193,7 +192,7 @@ fn read_dir_inner(
                     // }
                     // *size += dir.lock().unwrap().size;
                     *size += *size;
-                    subdirectories.push(dir);
+                    subdirectories.insert(dir);
                 }
             }
         }
@@ -208,8 +207,8 @@ fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<(
     };
 
     let mut directory = Directory::new(&root_name, Some(Box::from(parent.clone())), &path.to_string_lossy()); //Arc::new(Mutex::new());
-    let mut subdirectories: Vec<Directory> = Vec::new();
-    let mut files: Vec<File> = Vec::new();
+    let mut subdirectories: BTreeSet<Directory> = BTreeSet::new();
+    let mut files: BTreeSet<File> = BTreeSet::new();
     let mut size: u64 = 0;
     let result = read_dir_inner(&path, &cancel_checker, &directory, &mut subdirectories, &mut files, &mut size);
 
