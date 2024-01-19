@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+use crate::display::views::directory;
+
 use super::traits::Constrained;
 use fallible_iterator::{convert, FallibleIterator};
 use mime_guess;
@@ -176,9 +178,9 @@ impl From<std::io::Error> for ReadError {
     }
 }
 
-fn add_files(entry_list: Vec<EntriesWithMetadata>) -> Vec<File> {
-    read_files.collect()
-}
+// fn add_files(entry_list: Vec<EntriesWithMetadata>) -> Vec<File> {
+//     read_files.collect()
+// }
 
 // fn add_subdirectories(
 //     unread_subdirectories: Vec<EntriesWithMetadata>,
@@ -189,12 +191,10 @@ fn add_files(entry_list: Vec<EntriesWithMetadata>) -> Vec<File> {
 // }
 
 fn update_size_with_directory(
-    entry_list: Vec<EntriesWithMetadata>,
-    unread_subdirectories: Vec<&EntriesWithMetadata>,
-    size: u64,
-) -> u64 {
-    let existing_size = entry_list
-        .iter()
+    entry_list: &Vec<EntriesWithMetadata>,
+    unread_subdirectories: &Vec<&EntriesWithMetadata>,
+    size: u64) -> u64 {
+    let existing_size = entry_list.iter()
         .map(|directory| directory.access.metadata().unwrap().len())
         .sum::<u64>();
     let unread_directory_size = size * unread_subdirectories.len() as u64;
@@ -228,9 +228,8 @@ fn update_size_with_directory(
 //     Ok(())
 // }
 
-fn collect_files(entry_list: Vec<EntriesWithMetadata>) -> BTreeSet<File> {
-    let files = entry_list
-        .iter()
+fn collect_files(entry_list: &Vec<EntriesWithMetadata>) -> BTreeSet<File> {
+    let files = entry_list.iter()
         .filter(|directory| directory.access.metadata().unwrap().is_file())
         .map(|dir_entry| {
             (
@@ -255,9 +254,8 @@ fn collect_files(entry_list: Vec<EntriesWithMetadata>) -> BTreeSet<File> {
 }
 
 fn collect_subdirectories(
-    directory_list: Vec<&EntriesWithMetadata>,
-    directory_reader: Fn(&PathBuf),
-) -> BTreeSet<Directory> {
+    directory_list: &Vec<&EntriesWithMetadata>,
+    directory_reader: impl Fn(&PathBuf) -> Directory) -> BTreeSet<Directory> {
     let read_subdirectories = directory_list
         .iter()
         .map(|subdirectory| directory_reader(&subdirectory.access.path()));
@@ -273,36 +271,47 @@ fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<(
         Some(n) => n,
         None => "".to_string(),
     };
+    let mut directory = Directory::empty(
+      &root_name,
+      Some(Box::from(parent.clone())),
+      &path.to_string_lossy(),
+  );
 
     // let mut subdirectories: BTreeSet<Directory> = BTreeSet::new();
     // let mut files: BTreeSet<File> = BTreeSet::new();
     // let mut size: u64 = 0;
 
-    let directory_info = fs::read_dir(&path)?;
-    let unchecked_entry_list: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
-    let valid_directories = unchecked_entry_list
-        .iter()
-        .map(|dir| EntriesWithMetadata::constrain(*dir));
-    let metadata_error = valid_directories.clone().find(Result::is_err);
-    if metadata_error.is_some() {
-        // todo: better
-        metadata_error.unwrap().unwrap().access.metadata()?;
+    let unchecked_directory_info = fs::read_dir(&path);
+    match unchecked_directory_info {
+        Ok(directory_info) => {
+          let unchecked_entry_list: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
+          let valid_directories = unchecked_entry_list
+              .iter()
+              .map(|dir| EntriesWithMetadata::constrain(*dir));
+          let metadata_error = valid_directories.clone().find(Result::is_err);
+          match metadata_error.is_some() {
+            true => { directory.set_error(Some(ReadError::from(metadata_error.unwrap().unwrap_err()))); directory },
+            false => {
+              let entry_list: Vec<EntriesWithMetadata> = valid_directories.map(|x| x.unwrap()).collect();
+              let files = collect_files(&entry_list);
+              let directory_list = entry_list.iter()
+                  .filter(|directory| !directory.access.metadata().unwrap().is_file())
+                  .collect::<Vec<&EntriesWithMetadata>>()
+                  ;
+              let subdirectories = collect_subdirectories(&directory_list, |path| {
+                  return read_dir_impl(path, parent, cancel_checker);
+              });
+              let size = update_size_with_directory(&entry_list, &directory_list, 0);       
+              directory.set_subdirectories(subdirectories);
+              directory.set_files(files);
+              directory.set_size(size);      
+              directory 
+            },
+        }
+        },
+        Err(e) => directory,
     }
-    let entry_list: Vec<EntriesWithMetadata> = valid_directories.map(|x| x.unwrap()).collect();
-    let files = collect_files(entry_list);
-    let mut directory = Directory::empty(
-        &root_name,
-        Some(Box::from(parent.clone())),
-        &path.to_string_lossy(),
-    );
-    let directory_list = entry_list
-        .iter()
-        .filter(|directory| !directory.access.metadata().unwrap().is_file())
-        .collect::<Vec<&EntriesWithMetadata>>();
-    let subdirectories = collect_subdirectories(directory_list, |path| {
-        return read_dir_impl(path, parent, cancel_checker);
-    });
-    let size = update_size_with_directory(entry_list, directory_list, 0);
+
 
     // let result = read_dir_inner(
     //     &path,
@@ -317,12 +326,10 @@ fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<(
     // if let Err(e) = result {
     //     unwrapped_dir.set_error(Some(e));
     // }
-    directory.set_subdirectories(subdirectories);
-    directory.set_files(files);
-    directory.set_size(size);
+
     // }
 
-    directory
+    
 }
 
 pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Directory {
