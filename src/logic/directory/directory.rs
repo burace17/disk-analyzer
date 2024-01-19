@@ -175,22 +175,7 @@ impl From<std::io::Error> for ReadError {
     }
 }
 
-fn read_dir_inner(
-    path: &PathBuf,
-    cancel_checker: &Receiver<()>,
-    directory: &Directory,
-    subdirectories: &mut BTreeSet<Directory>,
-    files: &mut BTreeSet<File>,
-    size: &mut u64,
-) -> Result<(), ReadError> {
-    let directory_info = fs::read_dir(&path)?;
-    let existing_directories: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
-    // let mut x = existing_directories.cloned();
-    // let metadata_result_for_dirs = existing_directories.map(|dir| dir.metadata());
-    let metadata_error = existing_directories.iter().find(|directory| directory.metadata().is_err());
-    if metadata_error.is_some() { // todo: better
-      let exit = metadata_error.unwrap().metadata()?;
-    }
+fn placeholder(existing_directories: DirectoriesWithMetadata) {
     *size += existing_directories.iter().map(|directory| directory.metadata().unwrap().len()).sum::<u64>();
     let filenames = existing_directories.iter()
       .map(|dir_entry| dir_entry.file_name().into_string())
@@ -209,6 +194,23 @@ fn read_dir_inner(
     *size += *size * unread_subdirectories.len() as u64;
     total_subdirectories.fold(subdirectories, |subdir_list, subdir| {subdir_list.insert(subdir); subdir_list});
     Ok(())
+}
+
+fn read_dir_inner(
+    path: &PathBuf,
+    cancel_checker: &Receiver<()>,
+    directory: &Directory,
+    subdirectories: &mut BTreeSet<Directory>,
+    files: &mut BTreeSet<File>,
+    size: &mut u64) -> Result<(), ReadError> {
+    let directory_info = fs::read_dir(&path)?;
+    let existing_directories: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
+    let valid_directories = existing_directories.iter().map(DirectoriesWithMetadata::constrain);
+    let metadata_error = valid_directories.find(Result::is_err);    
+    if metadata_error.is_some() { // todo: better
+      metadata_error.unwrap().metadata()?;
+    }
+    placeholder()
 }
 
 fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<()>) -> Directory {
