@@ -189,7 +189,6 @@ fn add_files() {
 }
 
 fn add_subdirectories(existing_directories: DirectoriesWithMetadata) {
-
     let unread_subdirectories: Vec<&DirEntry> = existing_directories.iter().filter(|directory| !directory.metadata().unwrap().is_file()).collect();
     let total_subdirectories = unread_subdirectories.iter()
       .map(|subdirectory| read_dir_impl(&subdirectory.path(), directory, cancel_checker));
@@ -220,7 +219,8 @@ fn read_dir_inner(
     if metadata_error.is_some() { // todo: better
       metadata_error.unwrap().metadata()?;
     }
-    slurp_directories()
+    OK(())
+    // slurp_directories()
 }
 
 fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<()>) -> Directory {

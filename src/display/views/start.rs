@@ -1,3 +1,10 @@
+use std::{path::PathBuf, sync::mpsc::Sender, collections::HashMap};
+use iced::{theme, Length};
+use iced::widget::{pick_list, button, container};
+use iced::{widget::column, Element};
+
+use crate::application::{View, GUI, ApplicationEvent};
+use crate::logic::directory::directory::{self, Directory, get_computer_drives};
 
 pub struct Start {
 	dir: Directory,
@@ -9,19 +16,13 @@ pub struct Start {
 	selected_drive: Option<String>,
 }
 
-impl View for Start {
-	fn view() -> Self {
-
-	}
-}
-
 impl Default for Start {
 	fn default() -> Self {
 		Start {
 			scan_finished: false,
 			cancel_sender: None,
 			dir: Directory::default(),
-			paths: directory::get_computer_drives(),
+			paths: get_computer_drives(),
 			scanning: false,
 			pressed_cancel: false,
 			selected_drive: None,
@@ -30,16 +31,16 @@ impl Default for Start {
 }
 
 pub fn display_starting_view(app: &GUI) -> Element<ApplicationEvent> {
-	let drives_as_strings: Vec<String> = self.paths.keys().cloned().collect();
+	let drives_as_strings: Vec<String> = app.paths.keys().cloned().collect();
 	let directory_list = pick_list(
 			drives_as_strings,
-			self.selected_drive.clone(),
+			app.selected_drive.clone(),
 			ApplicationEvent::DriveSelected,
 	)
 	.placeholder("Select a directory...");
 	let mut scan_button = button("scan").padding(10).style(theme::Button::Primary);
 	let mut cancel_button = button("cancel").padding(10).style(theme::Button::Primary);
-	if !self.scanning {
+	if !app.scanning {
 			scan_button = scan_button.on_press(ApplicationEvent::RequestedScan)
 	} else {
 			cancel_button = cancel_button.on_press(ApplicationEvent::RequestedCancel)
