@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+use super::traits::Constrained;
+use fallible_iterator::{convert, FallibleIterator};
 use mime_guess;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
@@ -17,7 +19,6 @@ use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, Weak};
 use sugar::btreeset;
 use thiserror::Error;
-use fallible_iterator::{convert, FallibleIterator};
 #[derive(Error, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ReadError {
     #[error("I/O error")]
@@ -73,7 +74,7 @@ pub struct Directory {
 }
 
 impl Directory {
-    pub fn new(name: &str, parent: Option<Box<Directory>>, path: &str) -> Directory {
+    pub fn empty(name: &str, parent: Option<Box<Directory>>, path: &str) -> Directory {
         Directory {
             name: name.to_string(),
             size: 0,
@@ -175,52 +176,96 @@ impl From<std::io::Error> for ReadError {
     }
 }
 
-fn add_files() {
-    let filenames = existing_directories.iter()
-    .map(|dir_entry| dir_entry.file_name().into_string())
-    .filter_map(|arg0: Result<String, OsString>| Result::ok(arg0))
-    ;
-  let directory_files: Vec<&DirEntry> = existing_directories.iter().filter(|directory| directory.metadata().unwrap().is_file()).collect();
-  let read_files = directory_files.iter().map(|dir_entry| {
-    let mime = mime_guess::from_path(dir_entry.path()).first_or_text_plain().to_string();
-    File::new(&dir_entry.file_name().into_string().unwrap(), dir_entry.metadata().unwrap().len(), &mime)
-  }); //todo: better, since filenames is only used here
-  read_files.fold(files, |file_list, file| {file_list.insert(file); file_list});
+fn add_files(entry_list: Vec<EntriesWithMetadata>) -> Vec<File> {
+    read_files.collect()
 }
 
-fn add_subdirectories(existing_directories: DirectoriesWithMetadata) {
-    let unread_subdirectories: Vec<&DirEntry> = existing_directories.iter().filter(|directory| !directory.metadata().unwrap().is_file()).collect();
-    let total_subdirectories = unread_subdirectories.iter()
-      .map(|subdirectory| read_dir_impl(&subdirectory.path(), directory, cancel_checker));
-    total_subdirectories.fold(subdirectories, |subdir_list, subdir| {subdir_list.insert(subdir); subdir_list});
-    Ok(())
+// fn add_subdirectories(
+//     unread_subdirectories: Vec<EntriesWithMetadata>,
+//     parent: &Directory,
+//     cancel_checker: &Receiver<()>) -> Vec<Directory> {
+
+//     total_subdirectories.collect()
+// }
+
+fn update_size_with_directory(
+    entry_list: Vec<EntriesWithMetadata>,
+    unread_subdirectories: Vec<&EntriesWithMetadata>,
+    size: u64,
+) -> u64 {
+    let existing_size = entry_list
+        .iter()
+        .map(|directory| directory.access.metadata().unwrap().len())
+        .sum::<u64>();
+    let unread_directory_size = size * unread_subdirectories.len() as u64;
+    existing_size + unread_directory_size
 }
 
-fn update_size_with_directory() {
-    *size += existing_directories.access.iter().map(|directory| directory.metadata().unwrap().len()).sum::<u64>();
-    *size += *size * unread_subdirectories.len() as u64;
+// fn read_dir_inner(
+//     path: &PathBuf,
+//     cancel_checker: &Receiver<()>,
+//     directory: &Directory,
+//     subdirectories: &mut BTreeSet<Directory>,
+//     files: &mut BTreeSet<File>,
+//     size: &mut u64) -> Result<(), ReadError> {
+//     let directory_info = fs::read_dir(&path)?;
+//     let entry_list: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
+//     let valid_directories = entry_list.iter().map(|dir| EntriesWithMetadata::constrain(*dir));
+//     let metadata_error = valid_directories.clone().find(Result::is_err);
+//     if metadata_error.is_some() { // todo: better
+//       metadata_error.unwrap().unwrap().access.metadata()?;
+//     }
+//     let directory_list: Vec<EntriesWithMetadata> = valid_directories.map(|x| x.unwrap())
+//         .collect();
+//     let read_files = add_files(directory_list);
+//     read_files.iter().fold(files, |file_list, file| {file_list.insert(*file); file_list});
+//     let read_subdirectories = add_subdirectories(directory_list, directory, cancel_checker);
+//     read_subdirectories.iter().fold(subdirectories, |subdir_list, subdir| {subdir_list.insert(*subdir); subdir_list});
+//     let unread_subdirectories = directory_list.iter()
+//         .filter(|directory| !directory.access.metadata().unwrap().is_file())
+//         .collect();
+//     *size = update_size_with_directory(directory_list, unread_subdirectories, *size);
+//     Ok(())
+// }
+
+fn collect_files(entry_list: Vec<EntriesWithMetadata>) -> BTreeSet<File> {
+    let files = entry_list
+        .iter()
+        .filter(|directory| directory.access.metadata().unwrap().is_file())
+        .map(|dir_entry| {
+            (
+                dir_entry.access.path(),
+                dir_entry.access.file_name().into_string(),
+                dir_entry.access.metadata().unwrap().len(),
+            )
+        })
+        .filter(|(_, filename, _)| filename.is_ok())
+        .map(|(path, filename, metadata_length)| (path, filename.unwrap(), metadata_length))
+        .map(|(path, filename, metadata_length)| {
+            let mime = mime_guess::from_path(path)
+                .first_or_text_plain()
+                .to_string();
+            File::new(&filename, metadata_length, &mime)
+        })
+        .fold(BTreeSet::new(), |mut file_list, file| {
+            file_list.insert(file);
+            file_list
+        });
+    files
 }
 
-fn slurp_directories() {
-
-}
-use super::traits::Constrained;
-fn read_dir_inner(
-    path: &PathBuf,
-    cancel_checker: &Receiver<()>,
-    directory: &Directory,
-    subdirectories: &mut BTreeSet<Directory>,
-    files: &mut BTreeSet<File>,
-    size: &mut u64) -> Result<(), ReadError> {
-    let directory_info = fs::read_dir(&path)?;
-    let existing_directories: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
-    let valid_directories = existing_directories.iter().map(|dir| DirectoriesWithMetadata::constrain(*dir));
-    let metadata_error = valid_directories.find(Result::is_err);    
-    if metadata_error.is_some() { // todo: better
-      metadata_error.unwrap().unwrap().access.metadata()?;
-    }
-    OK(())
-    // slurp_directories()
+fn collect_subdirectories(
+    directory_list: Vec<&EntriesWithMetadata>,
+    directory_reader: Fn(&PathBuf),
+) -> BTreeSet<Directory> {
+    let read_subdirectories = directory_list
+        .iter()
+        .map(|subdirectory| directory_reader(&subdirectory.access.path()));
+    let subdirectories = read_subdirectories.fold(BTreeSet::new(), |mut subdir_list, subdir| {
+        subdir_list.insert(subdir);
+        subdir_list
+    });
+    subdirectories
 }
 
 fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<()>) -> Directory {
@@ -229,22 +274,44 @@ fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<(
         None => "".to_string(),
     };
 
-    let mut directory = Directory::new(
+    // let mut subdirectories: BTreeSet<Directory> = BTreeSet::new();
+    // let mut files: BTreeSet<File> = BTreeSet::new();
+    // let mut size: u64 = 0;
+
+    let directory_info = fs::read_dir(&path)?;
+    let unchecked_entry_list: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
+    let valid_directories = unchecked_entry_list
+        .iter()
+        .map(|dir| EntriesWithMetadata::constrain(*dir));
+    let metadata_error = valid_directories.clone().find(Result::is_err);
+    if metadata_error.is_some() {
+        // todo: better
+        metadata_error.unwrap().unwrap().access.metadata()?;
+    }
+    let entry_list: Vec<EntriesWithMetadata> = valid_directories.map(|x| x.unwrap()).collect();
+    let files = collect_files(entry_list);
+    let mut directory = Directory::empty(
         &root_name,
         Some(Box::from(parent.clone())),
         &path.to_string_lossy(),
-    ); //Arc::new(Mutex::new());
-    let mut subdirectories: BTreeSet<Directory> = BTreeSet::new();
-    let mut files: BTreeSet<File> = BTreeSet::new();
-    let mut size: u64 = 0;
-    let result = read_dir_inner(
-        &path,
-        &cancel_checker,
-        &directory,
-        &mut subdirectories,
-        &mut files,
-        &mut size,
     );
+    let directory_list = entry_list
+        .iter()
+        .filter(|directory| !directory.access.metadata().unwrap().is_file())
+        .collect::<Vec<&EntriesWithMetadata>>();
+    let subdirectories = collect_subdirectories(directory_list, |path| {
+        return read_dir_impl(path, parent, cancel_checker);
+    });
+    let size = update_size_with_directory(entry_list, directory_list, 0);
+
+    // let result = read_dir_inner(
+    //     &path,
+    //     &cancel_checker,
+    //     &directory,
+    //     &mut subdirectories,
+    //     &mut files,
+    //     &mut size,
+    // );
 
     // if let Ok(mut unwrapped_dir) = directory.lock() {
     // if let Err(e) = result {
@@ -261,23 +328,26 @@ fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<(
 pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Directory {
     read_dir_impl(
         path,
-        &Directory::new("empty", None, path.to_str().expect("no path provided")),
+        &Directory::empty("empty", None, path.to_str().expect("no path provided")),
         &cancel_checker,
     )
 }
 use winapi::um::fileapi::GetLogicalDrives;
 
-use super::traits::DirectoriesWithMetadata;
+use super::traits::EntriesWithMetadata;
 
 //todo bonus: pass in DWORD
 fn list_drives() -> HashMap<String, PathBuf> {
     let bitmask = unsafe { GetLogicalDrives() }; // DWORD
     let letter_masks = 0..26;
     let drives = letter_masks
-      .map(|drive_index| (drive_index, 1 << drive_index))
-      .filter(|(_, mask)| bitmask & mask != 0)
-      .map(|(d_index, _)| (b'A' + d_index as u8) as char)
-      .fold(Vec::new(), |mut drive_list, d_letter| {drive_list.push(d_letter.to_string()); drive_list});
+        .map(|drive_index| (drive_index, 1 << drive_index))
+        .filter(|(_, mask)| bitmask & mask != 0)
+        .map(|(d_index, _)| (b'A' + d_index as u8) as char)
+        .fold(Vec::new(), |mut drive_list, d_letter| {
+            drive_list.push(d_letter.to_string());
+            drive_list
+        });
     let letter_with_path: Vec<(String, PathBuf)> = drives
         .iter()
         .map(|s: &String| {

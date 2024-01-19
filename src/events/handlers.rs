@@ -1,5 +1,6 @@
 use crate::{
-    application::{ApplicationEvent, GUI}, logic::directory::directory::{Directory, read_dir},
+    application::{ApplicationEvent, GUI},
+    logic::directory::directory::{read_dir, Directory},
 };
 use async_tungstenite::tungstenite;
 use futures::{channel::mpsc::Sender, future, stream::FuturesUnordered};
@@ -8,7 +9,7 @@ use iced::Command;
 use std::{
     path::PathBuf,
     sync::{
-        mpsc::{self, Receiver, channel},
+        mpsc::{self, channel, Receiver},
         Arc, Mutex, Weak,
     },
     thread,

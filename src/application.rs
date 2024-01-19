@@ -10,13 +10,10 @@ use std::path::PathBuf;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
 
-use crate::logic::directory::directory::get_computer_drives;
-use crate::logic::{
-  directory::directory::Directory, 
-  analyzer::ViewColumn
-};
 use crate::display::views::{directory, start};
 use crate::events::handlers::{self, on_scan_request};
+use crate::logic::directory::directory::get_computer_drives;
+use crate::logic::{analyzer::ViewColumn, directory::directory::Directory};
 
 use iced::widget::button::StyleSheet;
 use iced::widget::{button, column, container, pick_list, row, text, Column, Container, Row, Text};
@@ -60,7 +57,7 @@ impl Application for GUI {
     fn view(&self) -> Element<ApplicationEvent> {
         match self.view {
             View::DirectoryDisplay => directory::directory_display_view(self),
-            View::Start => start::display_starting_view(self)
+            View::Start => start::display_starting_view(self),
         }
     }
     fn title(&self) -> String {
