@@ -5,7 +5,7 @@ trait Constrained {
 }
 
 struct DirectoriesWithMetadata {
-	value: DirEntry
+	access: DirEntry
 }
 
 impl Constrained for DirectoriesWithMetadata {

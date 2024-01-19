@@ -175,25 +175,35 @@ impl From<std::io::Error> for ReadError {
     }
 }
 
-fn placeholder(existing_directories: DirectoriesWithMetadata) {
-    *size += existing_directories.iter().map(|directory| directory.metadata().unwrap().len()).sum::<u64>();
+fn add_files() {
     let filenames = existing_directories.iter()
-      .map(|dir_entry| dir_entry.file_name().into_string())
-      .filter_map(|arg0: Result<String, OsString>| Result::ok(arg0))
-      ;
-    let directory_files: Vec<&DirEntry> = existing_directories.iter().filter(|directory| directory.metadata().unwrap().is_file()).collect();
-    let read_files = directory_files.iter().map(|dir_entry| {
-      let mime = mime_guess::from_path(dir_entry.path()).first_or_text_plain().to_string();
-      File::new(&dir_entry.file_name().into_string().unwrap(), dir_entry.metadata().unwrap().len(), &mime)
-    }); //todo: better, since filenames is only used here
+    .map(|dir_entry| dir_entry.file_name().into_string())
+    .filter_map(|arg0: Result<String, OsString>| Result::ok(arg0))
+    ;
+  let directory_files: Vec<&DirEntry> = existing_directories.iter().filter(|directory| directory.metadata().unwrap().is_file()).collect();
+  let read_files = directory_files.iter().map(|dir_entry| {
+    let mime = mime_guess::from_path(dir_entry.path()).first_or_text_plain().to_string();
+    File::new(&dir_entry.file_name().into_string().unwrap(), dir_entry.metadata().unwrap().len(), &mime)
+  }); //todo: better, since filenames is only used here
+  read_files.fold(files, |file_list, file| {file_list.insert(file); file_list});
+}
 
-    read_files.fold(files, |file_list, file| {file_list.insert(file); file_list});
+fn add_subdirectories(existing_directories: DirectoriesWithMetadata) {
+
     let unread_subdirectories: Vec<&DirEntry> = existing_directories.iter().filter(|directory| !directory.metadata().unwrap().is_file()).collect();
     let total_subdirectories = unread_subdirectories.iter()
       .map(|subdirectory| read_dir_impl(&subdirectory.path(), directory, cancel_checker));
-    *size += *size * unread_subdirectories.len() as u64;
     total_subdirectories.fold(subdirectories, |subdir_list, subdir| {subdir_list.insert(subdir); subdir_list});
     Ok(())
+}
+
+fn update_size_with_directory() {
+    *size += existing_directories.access.iter().map(|directory| directory.metadata().unwrap().len()).sum::<u64>();
+    *size += *size * unread_subdirectories.len() as u64;
+}
+
+fn slurp_directories() {
+
 }
 
 fn read_dir_inner(
@@ -210,7 +220,7 @@ fn read_dir_inner(
     if metadata_error.is_some() { // todo: better
       metadata_error.unwrap().metadata()?;
     }
-    placeholder()
+    slurp_directories()
 }
 
 fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<()>) -> Directory {
