@@ -4,7 +4,7 @@
 use humansize::WINDOWS;
 // use humansize;
 use super::directory;
-use crate::logic::directory::Directory;
+use crate::logic::directory::directory::Directory;
 use iter_set::symmetric_difference;
 use std::{
     collections::{BTreeSet, HashMap},
@@ -138,18 +138,18 @@ pub fn create_analyzer_columns(mut file_list: ViewColumn) -> ViewColumn {
     file_list
 }
 
-pub struct AnalyzerModel {
-    root: Arc<Mutex<directory::Directory>>,
-    current: Weak<Mutex<directory::Directory>>,
-}
+// pub struct AnalyzerModel {
+//     root: Arc<Mutex<Directory>>,
+//     current: Weak<Mutex<Directory>>,
+// }
 
 // #[derive(Msg)]
-pub enum AnalyzerMsg {
-    Quit,
-    RowActivated(ViewColumn),
-    Up,
-}
+// pub enum AnalyzerMsg {
+//     Quit,
+//     RowActivated(ViewColumn),
+//     Up,
+// }
 
-pub struct AnalyzerWindow {
-    model: AnalyzerModel,
-}
+// pub struct AnalyzerWindow {
+//     model: AnalyzerModel,
+// }

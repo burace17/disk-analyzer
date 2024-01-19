@@ -1,20 +1,22 @@
-trait Constrained {
-	fn constrain(self: U) -> Result<Self, Error>
+use std::{error::Error, fs::DirEntry};
+
+pub(crate) trait Constrained<U, C> 
 	where
-		Self: Sized;
+	Self: Sized, {
+	fn constrain(unconstrained: U) -> Result<C, Box<dyn Error>>;
 }
 
-struct DirectoriesWithMetadata {
-	access: DirEntry
+pub struct DirectoriesWithMetadata {
+	pub access: DirEntry
 }
 
-impl Constrained for DirectoriesWithMetadata {
-	fn constrain(entry: DirEntry) -> Result<DirectoriesWithMetadata, Error> {
+impl Constrained<DirEntry, DirectoriesWithMetadata> for DirectoriesWithMetadata {
+	fn constrain(entry: DirEntry) -> Result<DirectoriesWithMetadata, Box<dyn Error>> {
 		let is_err = entry.metadata().is_err();
 		if is_err {
-			Err("No metadata")
+			Err("No metadata".into())
 		} else {
-			Ok(DirectoriesWithMetadata::new(entry))
+			Ok(DirectoriesWithMetadata {access: entry})
 		}
 	}
 }

@@ -1,5 +1,5 @@
 use crate::{
-    application::{ApplicationEvent, GUI}, logic::directory::{Directory, read_dir},
+    application::{ApplicationEvent, GUI}, logic::directory::directory::{Directory, read_dir},
 };
 use async_tungstenite::tungstenite;
 use futures::{channel::mpsc::Sender, future, stream::FuturesUnordered};

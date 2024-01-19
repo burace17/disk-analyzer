@@ -204,7 +204,7 @@ fn update_size_with_directory() {
 fn slurp_directories() {
 
 }
-
+use super::traits::Constrained;
 fn read_dir_inner(
     path: &PathBuf,
     cancel_checker: &Receiver<()>,
@@ -214,10 +214,10 @@ fn read_dir_inner(
     size: &mut u64) -> Result<(), ReadError> {
     let directory_info = fs::read_dir(&path)?;
     let existing_directories: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
-    let valid_directories = existing_directories.iter().map(DirectoriesWithMetadata::constrain);
+    let valid_directories = existing_directories.iter().map(|dir| DirectoriesWithMetadata::constrain(*dir));
     let metadata_error = valid_directories.find(Result::is_err);    
     if metadata_error.is_some() { // todo: better
-      metadata_error.unwrap().metadata()?;
+      metadata_error.unwrap().unwrap().access.metadata()?;
     }
     OK(())
     // slurp_directories()
@@ -266,6 +266,8 @@ pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Directory {
     )
 }
 use winapi::um::fileapi::GetLogicalDrives;
+
+use super::traits::DirectoriesWithMetadata;
 
 //todo bonus: pass in DWORD
 fn list_drives() -> HashMap<String, PathBuf> {

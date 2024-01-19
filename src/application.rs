@@ -10,9 +10,9 @@ use std::path::PathBuf;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
 
-use crate::logic::directory::get_computer_drives;
+use crate::logic::directory::directory::get_computer_drives;
 use crate::logic::{
-  directory::Directory, 
+  directory::directory::Directory, 
   analyzer::ViewColumn
 };
 use crate::display::views::{directory, start};
