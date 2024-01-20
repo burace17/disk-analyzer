@@ -80,7 +80,7 @@ impl Application for GUI {
                 }
                 Command::none()
             }
-            ApplicationEvent::IcedEvent(event) => {
+            ApplicationEvent::IcedEvent(_event) => {
                 // does not work
                 // println!("{:?}", event);
                 //todo: -> https://discourse.iced.rs/t/quit-application/34
@@ -115,7 +115,7 @@ pub enum View {
 struct ScanError;
 
 impl From<std::io::Error> for ScanError {
-    fn from(error: std::io::Error) -> Self {
+    fn from(_error: std::io::Error) -> Self {
         // Convert std::io::Error to your custom error type
         ScanError
     }

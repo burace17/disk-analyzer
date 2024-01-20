@@ -178,18 +178,6 @@ impl From<std::io::Error> for ReadError {
     }
 }
 
-// fn add_files(entry_list: Vec<DirEntry>) -> Vec<File> {
-//     read_files.collect()
-// }
-
-// fn add_subdirectories(
-//     unread_subdirectories: Vec<DirEntry>,
-//     parent: &Directory,
-//     cancel_checker: &Receiver<()>) -> Vec<Directory> {
-
-//     total_subdirectories.collect()
-// }
-
 fn update_size_with_directory(
     entry_list: &Vec<DirEntry>,
     unread_subdirectories: &Vec<&DirEntry>,
@@ -202,33 +190,6 @@ fn update_size_with_directory(
     let unread_directory_size = size * unread_subdirectories.len() as u64;
     existing_size + unread_directory_size
 }
-
-// fn read_dir_inner(
-//     path: &PathBuf,
-//     cancel_checker: &Receiver<()>,
-//     directory: &Directory,
-//     subdirectories: &mut BTreeSet<Directory>,
-//     files: &mut BTreeSet<File>,
-//     size: &mut u64) -> Result<(), ReadError> {
-//     let directory_info = fs::read_dir(&path)?;
-//     let entry_list: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
-//     let valid_directories = entry_list.iter().map(|dir| DirEntry::constrain(*dir));
-//     let metadata_error = valid_directories.clone().find(Result::is_err);
-//     if metadata_error.is_some() { // todo: better
-//       metadata_error.unwrap().unwrap().access.metadata()?;
-//     }
-//     let directory_list: Vec<DirEntry> = valid_directories.map(|x| x.unwrap())
-//         .collect();
-//     let read_files = add_files(directory_list);
-//     read_files.iter().fold(files, |file_list, file| {file_list.insert(*file); file_list});
-//     let read_subdirectories = add_subdirectories(directory_list, directory, cancel_checker);
-//     read_subdirectories.iter().fold(subdirectories, |subdir_list, subdir| {subdir_list.insert(*subdir); subdir_list});
-//     let unread_subdirectories = directory_list.iter()
-//         .filter(|directory| !directory.access.metadata().unwrap().is_file())
-//         .collect();
-//     *size = update_size_with_directory(directory_list, unread_subdirectories, *size);
-//     Ok(())
-// }
 
 fn collect_files(entry_list: &Vec<DirEntry>) -> BTreeSet<File> {
     let files = entry_list

@@ -45,7 +45,6 @@ pub fn display_starting_view(app: &GUI) -> Element<ApplicationEvent> {
     } else {
         cancel_button = cancel_button.on_press(ApplicationEvent::RequestedCancel)
     }
-
     let app_context = column![directory_list, scan_button, cancel_button]
         .spacing(20)
         .max_width(200);

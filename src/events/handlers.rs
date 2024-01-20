@@ -26,14 +26,14 @@ pub fn on_scan_request(app: &mut GUI) -> Command<ApplicationEvent> {
         app.pressed_cancel = false;
         match app.selected_drive.clone() {
             Some(drive) => {
-                let (send, recv) = channel();
+                let (send, _recv) = channel();
                 app.cancel_sender = Some(send);
 
                 let selected_path: PathBuf =
                     // PathBuf::from(String::from(r"C:\Users\AJ\Desktop"));
                 app.paths.get(&drive).expect("Letter not found").clone();
 
-                let (send, recv) = channel();
+                let (_send, recv) = channel();
                 Command::perform(
                     on_scan_start(selected_path, recv),
                     ApplicationEvent::ScanFinished,
