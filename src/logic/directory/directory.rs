@@ -178,12 +178,12 @@ impl From<std::io::Error> for ReadError {
     }
 }
 
-// fn add_files(entry_list: Vec<EntriesWithMetadata>) -> Vec<File> {
+// fn add_files(entry_list: Vec<DirEntry>) -> Vec<File> {
 //     read_files.collect()
 // }
 
 // fn add_subdirectories(
-//     unread_subdirectories: Vec<EntriesWithMetadata>,
+//     unread_subdirectories: Vec<DirEntry>,
 //     parent: &Directory,
 //     cancel_checker: &Receiver<()>) -> Vec<Directory> {
 
@@ -191,11 +191,13 @@ impl From<std::io::Error> for ReadError {
 // }
 
 fn update_size_with_directory(
-    entry_list: &Vec<EntriesWithMetadata>,
-    unread_subdirectories: &Vec<&EntriesWithMetadata>,
-    size: u64) -> u64 {
-    let existing_size = entry_list.iter()
-        .map(|directory| directory.access.metadata().unwrap().len())
+    entry_list: &Vec<DirEntry>,
+    unread_subdirectories: &Vec<&DirEntry>,
+    size: u64,
+) -> u64 {
+    let existing_size = entry_list
+        .iter()
+        .map(|directory| directory.metadata().unwrap().len())
         .sum::<u64>();
     let unread_directory_size = size * unread_subdirectories.len() as u64;
     existing_size + unread_directory_size
@@ -210,12 +212,12 @@ fn update_size_with_directory(
 //     size: &mut u64) -> Result<(), ReadError> {
 //     let directory_info = fs::read_dir(&path)?;
 //     let entry_list: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
-//     let valid_directories = entry_list.iter().map(|dir| EntriesWithMetadata::constrain(*dir));
+//     let valid_directories = entry_list.iter().map(|dir| DirEntry::constrain(*dir));
 //     let metadata_error = valid_directories.clone().find(Result::is_err);
 //     if metadata_error.is_some() { // todo: better
 //       metadata_error.unwrap().unwrap().access.metadata()?;
 //     }
-//     let directory_list: Vec<EntriesWithMetadata> = valid_directories.map(|x| x.unwrap())
+//     let directory_list: Vec<DirEntry> = valid_directories.map(|x| x.unwrap())
 //         .collect();
 //     let read_files = add_files(directory_list);
 //     read_files.iter().fold(files, |file_list, file| {file_list.insert(*file); file_list});
@@ -228,14 +230,15 @@ fn update_size_with_directory(
 //     Ok(())
 // }
 
-fn collect_files(entry_list: &Vec<EntriesWithMetadata>) -> BTreeSet<File> {
-    let files = entry_list.iter()
-        .filter(|directory| directory.access.metadata().unwrap().is_file())
+fn collect_files(entry_list: &Vec<DirEntry>) -> BTreeSet<File> {
+    let files = entry_list
+        .iter()
+        .filter(|directory| directory.metadata().unwrap().is_file())
         .map(|dir_entry| {
             (
-                dir_entry.access.path(),
-                dir_entry.access.file_name().into_string(),
-                dir_entry.access.metadata().unwrap().len(),
+                dir_entry.path(),
+                dir_entry.file_name().into_string(),
+                dir_entry.metadata().unwrap().len(),
             )
         })
         .filter(|(_, filename, _)| filename.is_ok())
@@ -254,11 +257,12 @@ fn collect_files(entry_list: &Vec<EntriesWithMetadata>) -> BTreeSet<File> {
 }
 
 fn collect_subdirectories(
-    directory_list: &Vec<&EntriesWithMetadata>,
-    directory_reader: impl Fn(&PathBuf) -> Directory) -> BTreeSet<Directory> {
+    directory_list: &Vec<&DirEntry>,
+    directory_reader: impl Fn(&PathBuf) -> Directory,
+) -> BTreeSet<Directory> {
     let read_subdirectories = directory_list
         .iter()
-        .map(|subdirectory| directory_reader(&subdirectory.access.path()));
+        .map(|subdirectory| directory_reader(&subdirectory.path()));
     let subdirectories = read_subdirectories.fold(BTreeSet::new(), |mut subdir_list, subdir| {
         subdir_list.insert(subdir);
         subdir_list
@@ -272,64 +276,42 @@ fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<(
         None => "".to_string(),
     };
     let mut directory = Directory::empty(
-      &root_name,
-      Some(Box::from(parent.clone())),
-      &path.to_string_lossy(),
-  );
-
-    // let mut subdirectories: BTreeSet<Directory> = BTreeSet::new();
-    // let mut files: BTreeSet<File> = BTreeSet::new();
-    // let mut size: u64 = 0;
-
+        &root_name,
+        Some(Box::from(parent.clone())),
+        &path.to_string_lossy(),
+    );
     let unchecked_directory_info = fs::read_dir(&path);
     match unchecked_directory_info {
         Ok(directory_info) => {
-          let unchecked_entry_list: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
-          let valid_directories = unchecked_entry_list
-              .iter()
-              .map(|dir| EntriesWithMetadata::constrain(*dir));
-          let metadata_error = valid_directories.clone().find(Result::is_err);
-          match metadata_error.is_some() {
-            true => { directory.set_error(Some(ReadError::from(metadata_error.unwrap().unwrap_err()))); directory },
-            false => {
-              let entry_list: Vec<EntriesWithMetadata> = valid_directories.map(|x| x.unwrap()).collect();
-              let files = collect_files(&entry_list);
-              let directory_list = entry_list.iter()
-                  .filter(|directory| !directory.access.metadata().unwrap().is_file())
-                  .collect::<Vec<&EntriesWithMetadata>>()
-                  ;
-              let subdirectories = collect_subdirectories(&directory_list, |path| {
-                  return read_dir_impl(path, parent, cancel_checker);
-              });
-              let size = update_size_with_directory(&entry_list, &directory_list, 0);       
-              directory.set_subdirectories(subdirectories);
-              directory.set_files(files);
-              directory.set_size(size);      
-              directory 
-            },
+            let entry_list_results: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
+            let metadata_error = entry_list_results
+                .iter()
+                .find(|suspect_dir| suspect_dir.metadata().is_err());
+            match metadata_error {
+                Some(err_result) => {
+                    let error: io::Error = err_result.metadata().err().unwrap();
+                    directory.set_error(Some(ReadError::from(error)));
+                    directory
+                }
+                None => {
+                    let files: BTreeSet<File> = collect_files(&entry_list_results);
+                    let directory_list = entry_list_results
+                        .iter()
+                        .filter(|directory| !directory.metadata().unwrap().is_file())
+                        .collect::<Vec<&DirEntry>>();
+                    let subdirectories = collect_subdirectories(&directory_list, |path| {
+                        return read_dir_impl(path, parent, cancel_checker);
+                    });
+                    let size = update_size_with_directory(&entry_list_results, &directory_list, 0);
+                    directory.set_subdirectories(subdirectories);
+                    directory.set_files(files);
+                    directory.set_size(size);
+                    directory
+                }
+            }
         }
-        },
-        Err(e) => directory,
+        Err(_e) => directory,
     }
-
-
-    // let result = read_dir_inner(
-    //     &path,
-    //     &cancel_checker,
-    //     &directory,
-    //     &mut subdirectories,
-    //     &mut files,
-    //     &mut size,
-    // );
-
-    // if let Ok(mut unwrapped_dir) = directory.lock() {
-    // if let Err(e) = result {
-    //     unwrapped_dir.set_error(Some(e));
-    // }
-
-    // }
-
-    
 }
 
 pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Directory {
@@ -340,8 +322,6 @@ pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Directory {
     )
 }
 use winapi::um::fileapi::GetLogicalDrives;
-
-use super::traits::EntriesWithMetadata;
 
 //todo bonus: pass in DWORD
 fn list_drives() -> HashMap<String, PathBuf> {
