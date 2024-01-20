@@ -258,8 +258,7 @@ fn collect_files(entry_list: &Vec<DirEntry>) -> BTreeSet<File> {
 
 fn collect_subdirectories(
     directory_list: &Vec<&DirEntry>,
-    directory_reader: impl Fn(&PathBuf) -> Directory,
-) -> BTreeSet<Directory> {
+    directory_reader: impl Fn(&PathBuf) -> Directory) -> BTreeSet<Directory> {
     let read_subdirectories = directory_list
         .iter()
         .map(|subdirectory| directory_reader(&subdirectory.path()));
@@ -270,46 +269,57 @@ fn collect_subdirectories(
     subdirectories
 }
 
+fn build_directory(
+    entry_list_results: Vec<DirEntry>, 
+    parent: &Directory, 
+    cancel_checker: &Receiver<()>, 
+    mut directory: Directory) -> Directory{
+    let files: BTreeSet<File> = collect_files(&entry_list_results);
+    let directory_list = entry_list_results
+        .iter()
+        .filter(|directory| !directory.metadata().unwrap().is_file())
+        .collect::<Vec<&DirEntry>>();
+    let subdirectories = collect_subdirectories(&directory_list, |path| {
+        return read_dir_impl(path, parent, cancel_checker);
+    });
+    let size = update_size_with_directory(&entry_list_results, &directory_list, 0);
+    directory.set_subdirectories(subdirectories);
+    directory.set_files(files);
+    directory.set_size(size);
+    directory
+}
+
+fn build_directories(
+    entry_list_results: Vec<DirEntry>, 
+    mut directory: Directory, 
+    parent: &Directory, 
+    cancel_checker: &Receiver<()>) -> Directory {
+    let metadata_error = entry_list_results
+        .iter()
+        .find(|suspect_dir| suspect_dir.metadata().is_err());
+    match metadata_error {
+        Some(err_result) => {
+            let error: io::Error = err_result.metadata().err().unwrap();
+            directory.set_error(Some(ReadError::from(error)));
+            directory
+        }
+        None => build_directory(entry_list_results, parent, cancel_checker, directory)
+    }
+}
+
 fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<()>) -> Directory {
     let root_name = match path_get_file_name(&path) {
         Some(n) => n,
         None => "".to_string(),
     };
-    let mut directory = Directory::empty(
+    let directory = Directory::empty(
         &root_name,
         Some(Box::from(parent.clone())),
         &path.to_string_lossy(),
     );
     let unchecked_directory_info = fs::read_dir(&path);
     match unchecked_directory_info {
-        Ok(directory_info) => {
-            let entry_list_results: Vec<DirEntry> = directory_info.filter_map(Result::ok).collect();
-            let metadata_error = entry_list_results
-                .iter()
-                .find(|suspect_dir| suspect_dir.metadata().is_err());
-            match metadata_error {
-                Some(err_result) => {
-                    let error: io::Error = err_result.metadata().err().unwrap();
-                    directory.set_error(Some(ReadError::from(error)));
-                    directory
-                }
-                None => {
-                    let files: BTreeSet<File> = collect_files(&entry_list_results);
-                    let directory_list = entry_list_results
-                        .iter()
-                        .filter(|directory| !directory.metadata().unwrap().is_file())
-                        .collect::<Vec<&DirEntry>>();
-                    let subdirectories = collect_subdirectories(&directory_list, |path| {
-                        return read_dir_impl(path, parent, cancel_checker);
-                    });
-                    let size = update_size_with_directory(&entry_list_results, &directory_list, 0);
-                    directory.set_subdirectories(subdirectories);
-                    directory.set_files(files);
-                    directory.set_size(size);
-                    directory
-                }
-            }
-        }
+        Ok(directory_info) => build_directories(directory_info.filter_map(Result::ok).collect(), directory, parent, cancel_checker),
         Err(_e) => directory,
     }
 }
@@ -323,7 +333,6 @@ pub fn read_dir(path: &PathBuf, cancel_checker: &Receiver<()>) -> Directory {
 }
 use winapi::um::fileapi::GetLogicalDrives;
 
-//todo bonus: pass in DWORD
 fn list_drives() -> HashMap<String, PathBuf> {
     let bitmask = unsafe { GetLogicalDrives() }; // DWORD
     let letter_masks = 0..26;
