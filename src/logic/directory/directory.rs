@@ -71,8 +71,8 @@ impl fmt::Display for File {
 pub struct Directory {
     name: String,
     size: u64,
-    directories: List<Directory>,
-    files: List<File>,
+    directories: List<Arc<Directory>>,
+    files: List<Arc<File>>,
     parent: Option<Box<Directory>>,
     path: String,
     error: Option<ReadError>,
@@ -99,11 +99,11 @@ impl Directory {
         self.size
     }
 
-    pub fn get_subdirectories(&self) -> &List<Directory> {
+    pub fn get_subdirectories(&self) -> &List<Arc<Directory>> {
         &self.directories
     }
 
-    pub fn get_files(&self) -> &List<File> {
+    pub fn get_files(&self) -> &List<Arc<File>> {
         &self.files
     }
 
@@ -124,11 +124,11 @@ impl Directory {
         self.error.is_some()
     }
 
-    fn set_subdirectories(&mut self, subdirs: List<Directory>) {
+    fn set_subdirectories(&mut self, subdirs: List<Arc<Directory>>) {
         self.directories = subdirs;
     }
 
-    fn set_files(&mut self, files: List<File>) {
+    fn set_files(&mut self, files: List<Arc<File>>) {
         self.files = files;
     }
 
@@ -184,10 +184,9 @@ impl From<std::io::Error> for ReadError {
 }
 
 fn update_size_with_directory(
-    entry_list: &List<DirEntry>,
-    unread_subdirectories: &List<&DirEntry>,
-    size: u64,
-) -> u64 {
+    entry_list: &List<Arc<DirEntry>>,
+    unread_subdirectories: &List<Arc<&DirEntry>>,
+    size: u64) -> u64 {
     let existing_size = entry_list
         .iter()
         .map(|directory| directory.metadata().unwrap().len())
@@ -197,7 +196,7 @@ fn update_size_with_directory(
 }
 
 // note: using sets can allow for interesting unions, but alas these are not implemented
-fn collect_files(entry_list: &List<DirEntry>) -> List<File> { 
+fn collect_files(entry_list: &List<Arc<DirEntry>>) -> List<Arc<File>> { 
     let files = entry_list
         .iter()
         .filter(|directory| directory.metadata().unwrap().is_file())
@@ -224,8 +223,8 @@ fn collect_files(entry_list: &List<DirEntry>) -> List<File> {
 }
 
 fn collect_subdirectories(
-    directory_list: &List<&DirEntry>,
-    directory_reader: impl Fn(&PathBuf) -> Directory) -> List<Directory> {
+    directory_list: &List<Arc<&DirEntry>>,
+    directory_reader: impl Fn(&PathBuf) -> Directory) -> List<Arc<Directory>> {
     let read_subdirectories = directory_list
         .iter()
         .map(|subdirectory| directory_reader(&subdirectory.path()));
@@ -237,15 +236,15 @@ fn collect_subdirectories(
 }
 
 fn build_directory(
-    entry_list_results: List<DirEntry>, 
+    entry_list_results: List<Arc<DirEntry>>, 
     parent: &Directory, 
     cancel_checker: &Receiver<()>, 
     mut directory: Directory) -> Directory{
-    let files: List<File> = collect_files(&entry_list_results);
+    let files: List<Arc<File>> = collect_files(&entry_list_results);
     let directory_list = entry_list_results
         .iter()
         .filter(|directory| !directory.metadata().unwrap().is_file())
-        .collect::<List<&DirEntry>>();
+        .collect::<List<Arc<&DirEntry>>>();
     let subdirectories = collect_subdirectories(&directory_list, |path| {
         return read_dir_impl(path, parent, cancel_checker);
     });
@@ -257,7 +256,7 @@ fn build_directory(
 }
 
 fn build_directories(
-    entry_list_results: List<DirEntry>, 
+    entry_list_results: List<Arc<DirEntry>>, 
     mut directory: Directory, 
     parent: &Directory, 
     cancel_checker: &Receiver<()>) -> Directory {
