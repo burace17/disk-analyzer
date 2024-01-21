@@ -216,7 +216,7 @@ fn collect_files(entry_list: &List<DirEntry, archery::ArcTK>) -> List<File, arch
             File::new(&filename, metadata_length, &mime)
         })
         .fold(List::new_with_ptr_kind(), |mut file_list, file| {
-            file_list.push_front(file);
+            file_list.push_front_mut(file);
             file_list
         })
         // .iter()
@@ -233,7 +233,7 @@ fn collect_subdirectories(
         .map(|subdirectory| directory_reader(&subdirectory.path()));
     let subdirectories = read_subdirectories
     .fold(List::new_with_ptr_kind(), |mut subdir_list, subdir| {
-        subdir_list.push_front(subdir);
+        subdir_list.push_front_mut(subdir);
         subdir_list
     });
     subdirectories

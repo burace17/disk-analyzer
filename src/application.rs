@@ -76,7 +76,11 @@ impl Application for GUI {
                 self.scanning = false;
                 println!("cancel requested");
                 if let Some(tracker) = &self.cancel_sender {
-                    tracker.send(()).unwrap();
+                    let send_result = tracker.send(());
+                    match send_result {
+                        Ok(msg) => println!("{:?}", msg),
+                        Err(err) => println!("{:?}", err.0),
+                    }
                 }
                 Command::none()
             }
