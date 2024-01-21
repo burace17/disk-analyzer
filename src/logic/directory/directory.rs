@@ -5,8 +5,10 @@
 use crate::display::views::directory;
 
 use super::traits::Constrained;
-use fallible_iterator::{convert, FallibleIterator};
+// use fallible_iterator::{convert, FallibleIterator};
 use mime_guess;
+use rpds::HashTrieSet;
+use rpds::List;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -15,13 +17,14 @@ use std::fs;
 use std::fs::DirEntry;
 use std::fs::Metadata;
 use std::fs::ReadDir;
+use std::hash::Hash;
 use std::io;
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, Weak};
 use sugar::btreeset;
 use thiserror::Error;
-#[derive(Error, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Error, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ReadError {
     #[error("I/O error")]
     IOError(std::io::ErrorKind),
@@ -29,7 +32,7 @@ pub enum ReadError {
     OperationCancelled,
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct File {
     name: String,
     size: u64,
@@ -64,12 +67,12 @@ impl fmt::Display for File {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Directory {
     name: String,
     size: u64,
-    directories: BTreeSet<Directory>,
-    files: BTreeSet<File>,
+    directories: List<Directory>,
+    files: List<File>,
     parent: Option<Box<Directory>>,
     path: String,
     error: Option<ReadError>,
@@ -80,8 +83,8 @@ impl Directory {
         Directory {
             name: name.to_string(),
             size: 0,
-            directories: btreeset![],
-            files: btreeset![],
+            directories: List::new(),
+            files: List::new(),
             parent: parent,
             path: path.to_string(),
             error: None,
@@ -96,11 +99,11 @@ impl Directory {
         self.size
     }
 
-    pub fn get_subdirectories(&self) -> &BTreeSet<Directory> {
+    pub fn get_subdirectories(&self) -> &List<Directory> {
         &self.directories
     }
 
-    pub fn get_files(&self) -> &BTreeSet<File> {
+    pub fn get_files(&self) -> &List<File> {
         &self.files
     }
 
@@ -121,11 +124,11 @@ impl Directory {
         self.error.is_some()
     }
 
-    fn set_subdirectories(&mut self, subdirs: BTreeSet<Directory>) {
+    fn set_subdirectories(&mut self, subdirs: List<Directory>) {
         self.directories = subdirs;
     }
 
-    fn set_files(&mut self, files: BTreeSet<File>) {
+    fn set_files(&mut self, files: List<File>) {
         self.files = files;
     }
 
@@ -143,14 +146,16 @@ impl fmt::Display for Directory {
             .directories
             .iter()
             .map(|ent| ent.to_string())
-            .collect::<Vec<String>>()
-            .join("\n");
+            // .collect::<List<String>>()
+            .fold(String::new(), |string_builder, dir_string| string_builder + dir_string.as_str() + "\n");
         let file_strings = self
             .files
             .iter()
             .map(|ent| ent.to_string())
-            .collect::<Vec<String>>()
-            .join("\n");
+            // .collect::<List<String>>()
+            // .join("\n")
+            .fold(String::new(), |string_builder, dir_string| string_builder + dir_string.as_str() + "\n")
+            ;
         write!(
             f,
             "----- {} {} ------\n{}\n{}",
@@ -179,8 +184,8 @@ impl From<std::io::Error> for ReadError {
 }
 
 fn update_size_with_directory(
-    entry_list: &Vec<DirEntry>,
-    unread_subdirectories: &Vec<&DirEntry>,
+    entry_list: &List<DirEntry>,
+    unread_subdirectories: &List<&DirEntry>,
     size: u64,
 ) -> u64 {
     let existing_size = entry_list
@@ -191,7 +196,8 @@ fn update_size_with_directory(
     existing_size + unread_directory_size
 }
 
-fn collect_files(entry_list: &Vec<DirEntry>) -> BTreeSet<File> {
+// note: using sets can allow for interesting unions, but alas these are not implemented
+fn collect_files(entry_list: &List<DirEntry>) -> List<File> { 
     let files = entry_list
         .iter()
         .filter(|directory| directory.metadata().unwrap().is_file())
@@ -210,36 +216,36 @@ fn collect_files(entry_list: &Vec<DirEntry>) -> BTreeSet<File> {
                 .to_string();
             File::new(&filename, metadata_length, &mime)
         })
-        .fold(BTreeSet::new(), |mut file_list, file| {
-            file_list.insert(file);
+        .fold(List::new(), |mut file_list, file| {
+            file_list.push_front(file);
             file_list
         });
     files
 }
 
 fn collect_subdirectories(
-    directory_list: &Vec<&DirEntry>,
-    directory_reader: impl Fn(&PathBuf) -> Directory) -> BTreeSet<Directory> {
+    directory_list: &List<&DirEntry>,
+    directory_reader: impl Fn(&PathBuf) -> Directory) -> List<Directory> {
     let read_subdirectories = directory_list
         .iter()
         .map(|subdirectory| directory_reader(&subdirectory.path()));
-    let subdirectories = read_subdirectories.fold(BTreeSet::new(), |mut subdir_list, subdir| {
-        subdir_list.insert(subdir);
+    let subdirectories = read_subdirectories.fold(List::new(), |mut subdir_list, subdir| {
+        subdir_list.push_front(subdir);
         subdir_list
     });
     subdirectories
 }
 
 fn build_directory(
-    entry_list_results: Vec<DirEntry>, 
+    entry_list_results: List<DirEntry>, 
     parent: &Directory, 
     cancel_checker: &Receiver<()>, 
     mut directory: Directory) -> Directory{
-    let files: BTreeSet<File> = collect_files(&entry_list_results);
+    let files: List<File> = collect_files(&entry_list_results);
     let directory_list = entry_list_results
         .iter()
         .filter(|directory| !directory.metadata().unwrap().is_file())
-        .collect::<Vec<&DirEntry>>();
+        .collect::<List<&DirEntry>>();
     let subdirectories = collect_subdirectories(&directory_list, |path| {
         return read_dir_impl(path, parent, cancel_checker);
     });
@@ -251,7 +257,7 @@ fn build_directory(
 }
 
 fn build_directories(
-    entry_list_results: Vec<DirEntry>, 
+    entry_list_results: List<DirEntry>, 
     mut directory: Directory, 
     parent: &Directory, 
     cancel_checker: &Receiver<()>) -> Directory {

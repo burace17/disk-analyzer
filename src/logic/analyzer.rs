@@ -2,10 +2,11 @@
 //  * License, v. 2.0. If a copy of the MPL was not distributed with this
 //  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 use humansize::WINDOWS;
+use rpds::HashTrieSet;
 // use humansize;
 use super::directory;
 use crate::logic::directory::directory::Directory;
-use iter_set::symmetric_difference;
+// use iter_set::symmetric_difference;
 use std::{
     collections::{BTreeSet, HashMap},
     path::PathBuf,
@@ -15,7 +16,7 @@ static FOLDER_ICON: &str = "folder";
 static ERROR_ICON: &str = "dialog-error";
 
 // type CellDataFunc = Box<dyn Fn(&gtk::TreeViewColumn, &gtk::CellRenderer, &gtk::TreeModel, &gtk::TreeIter) + 'static>;
-#[derive(Clone, Builder, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DirStore {
     pub icon: String,
     pub name: String,
@@ -23,7 +24,7 @@ pub struct DirStore {
     pub inner_size: u64,
 }
 
-pub fn fill_list_store(dir: Directory) -> BTreeSet<DirStore> {
+pub fn fill_list_store(dir: Directory) -> HashTrieSet<DirStore> {
     let current_directory = dir.clone();
     let current_directory_size = current_directory.get_size();
     let current_sub_directories = current_directory.get_subdirectories();
@@ -39,21 +40,26 @@ pub fn fill_list_store(dir: Directory) -> BTreeSet<DirStore> {
         .iter()
         .filter(|subdir| subdir.has_error())
         .cloned()
-        .collect();
-    let valid_stores = current_sub_directories
-        .difference(&error_dirs)
+        .collect::<HashTrieSet<Directory>>();
+    let valid_stores = current_sub_directories.iter()
+        .filter(|subdir| !error_dirs.contains(&subdir))
+        // .difference(&error_dirs)
         .map(|subdir| make_store_by_icon(FOLDER_ICON, subdir))
-        .collect();
+        .collect::<HashTrieSet<DirStore>>();
     let error_stores = error_dirs
         .iter()
         .map(|subdir| make_store_by_icon(ERROR_ICON, subdir))
-        .collect::<BTreeSet<DirStore>>();
-    let dir_stores = error_stores
-        .union(&valid_stores)
-        .cloned()
-        .collect::<BTreeSet<DirStore>>();
+        .collect::<HashTrieSet<DirStore>>();
+    let dir_stores = valid_stores.iter()
+        .fold(error_stores, |dir_stores, valid_store| {
+            dir_stores.insert(*valid_store)
+        })
+        // .iter()
+        // .cloned()
+        // .collect::<HashTrieSet<DirStore>>()
+        ;
     let current_directory_files = current_directory.get_files();
-    let file_stores: BTreeSet<DirStore> = current_directory_files
+    let file_stores: HashTrieSet<DirStore> = current_directory_files
         .iter()
         .map(|file| DirStore {
             icon: String::from(file.get_mime()),
@@ -62,13 +68,15 @@ pub fn fill_list_store(dir: Directory) -> BTreeSet<DirStore> {
             inner_size: file.get_size(),
         })
         .collect();
-    let store_list = dir_stores
-        .union(&file_stores)
-        .cloned()
-        .collect::<BTreeSet<DirStore>>();
+    let store_list = dir_stores.iter()
+        .fold(file_stores, |store_list, dir_store| store_list.insert(*dir_store))
+        // .union(&file_stores)
+        // .cloned()
+        // .collect::<HashTrieSet<DirStore>>()
+        ;
     store_list
 }
-#[derive(Clone, Builder)]
+#[derive(Clone)]
 pub struct ViewColumn {
     pack_start: bool,
     title: String,

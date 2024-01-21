@@ -2,9 +2,9 @@ use crate::{
     application::{ApplicationEvent, GUI},
     logic::directory::directory::{read_dir, Directory},
 };
-use async_tungstenite::tungstenite;
+// use async_tungstenite::tungstenite;
 use futures::{channel::mpsc::Sender, future, stream::FuturesUnordered};
-use futures_util;
+// use futures_util;
 use iced::Command;
 use std::{
     path::PathBuf,
