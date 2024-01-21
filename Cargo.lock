@@ -523,6 +523,7 @@ dependencies = [
 name = "disk_analyzer"
 version = "2024.1.0"
 dependencies = [
+ "archery",
  "derive_more",
  "futures",
  "humansize",

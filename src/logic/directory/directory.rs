@@ -71,8 +71,8 @@ impl fmt::Display for File {
 pub struct Directory {
     name: String,
     size: u64,
-    directories: List<Arc<Directory>>,
-    files: List<Arc<File>>,
+    directories: List<Directory, archery::ArcTK>,
+    files: List<File, archery::ArcTK>,
     parent: Option<Box<Directory>>,
     path: String,
     error: Option<ReadError>,
@@ -83,8 +83,8 @@ impl Directory {
         Directory {
             name: name.to_string(),
             size: 0,
-            directories: List::new(),
-            files: List::new(),
+            directories: List::new_with_ptr_kind(),
+            files: List::new_with_ptr_kind(),
             parent: parent,
             path: path.to_string(),
             error: None,
@@ -99,11 +99,11 @@ impl Directory {
         self.size
     }
 
-    pub fn get_subdirectories(&self) -> &List<Arc<Directory>> {
+    pub fn get_subdirectories(&self) -> &List<Directory, archery::ArcTK> {
         &self.directories
     }
 
-    pub fn get_files(&self) -> &List<Arc<File>> {
+    pub fn get_files(&self) -> &List<File, archery::ArcTK> {
         &self.files
     }
 
@@ -124,11 +124,11 @@ impl Directory {
         self.error.is_some()
     }
 
-    fn set_subdirectories(&mut self, subdirs: List<Arc<Directory>>) {
+    fn set_subdirectories(&mut self, subdirs: List<Directory, archery::ArcTK>) {
         self.directories = subdirs;
     }
 
-    fn set_files(&mut self, files: List<Arc<File>>) {
+    fn set_files(&mut self, files: List<File, archery::ArcTK>) {
         self.files = files;
     }
 
@@ -184,8 +184,8 @@ impl From<std::io::Error> for ReadError {
 }
 
 fn update_size_with_directory(
-    entry_list: &List<Arc<DirEntry>>,
-    unread_subdirectories: &List<Arc<&DirEntry>>,
+    entry_list: &List<DirEntry, archery::ArcTK>,
+    unread_subdirectories: &List<&DirEntry, archery::ArcTK>,
     size: u64) -> u64 {
     let existing_size = entry_list
         .iter()
@@ -196,7 +196,7 @@ fn update_size_with_directory(
 }
 
 // note: using sets can allow for interesting unions, but alas these are not implemented
-fn collect_files(entry_list: &List<Arc<DirEntry>>) -> List<Arc<File>> { 
+fn collect_files(entry_list: &List<DirEntry, archery::ArcTK>) -> List<File, archery::ArcTK> { 
     let files = entry_list
         .iter()
         .filter(|directory| directory.metadata().unwrap().is_file())
@@ -215,20 +215,24 @@ fn collect_files(entry_list: &List<Arc<DirEntry>>) -> List<Arc<File>> {
                 .to_string();
             File::new(&filename, metadata_length, &mime)
         })
-        .fold(List::new(), |mut file_list, file| {
+        .fold(List::new_with_ptr_kind(), |mut file_list, file| {
             file_list.push_front(file);
             file_list
-        });
+        })
+        // .iter()
+        // .map(Arc::new).collect::<List<Arc<&File>>>()
+        ;
     files
 }
 
 fn collect_subdirectories(
-    directory_list: &List<Arc<&DirEntry>>,
-    directory_reader: impl Fn(&PathBuf) -> Directory) -> List<Arc<Directory>> {
+    directory_list: &List<&DirEntry, archery::ArcTK>,
+    directory_reader: impl Fn(&PathBuf) -> Directory) -> List<Directory, archery::ArcTK> {
     let read_subdirectories = directory_list
         .iter()
         .map(|subdirectory| directory_reader(&subdirectory.path()));
-    let subdirectories = read_subdirectories.fold(List::new(), |mut subdir_list, subdir| {
+    let subdirectories = read_subdirectories
+    .fold(List::new_with_ptr_kind(), |mut subdir_list, subdir| {
         subdir_list.push_front(subdir);
         subdir_list
     });
@@ -236,15 +240,14 @@ fn collect_subdirectories(
 }
 
 fn build_directory(
-    entry_list_results: List<Arc<DirEntry>>, 
+    entry_list_results: List<DirEntry, archery::ArcTK>, 
     parent: &Directory, 
     cancel_checker: &Receiver<()>, 
     mut directory: Directory) -> Directory{
-    let files: List<Arc<File>> = collect_files(&entry_list_results);
-    let directory_list = entry_list_results
-        .iter()
+    let files: List<File, archery::ArcTK> = collect_files(&entry_list_results);
+    let directory_list = entry_list_results.iter()
         .filter(|directory| !directory.metadata().unwrap().is_file())
-        .collect::<List<Arc<&DirEntry>>>();
+        .collect::<List<&DirEntry, archery::ArcTK>>();
     let subdirectories = collect_subdirectories(&directory_list, |path| {
         return read_dir_impl(path, parent, cancel_checker);
     });
@@ -256,7 +259,7 @@ fn build_directory(
 }
 
 fn build_directories(
-    entry_list_results: List<Arc<DirEntry>>, 
+    entry_list_results: List<DirEntry, archery::ArcTK>, 
     mut directory: Directory, 
     parent: &Directory, 
     cancel_checker: &Receiver<()>) -> Directory {
@@ -285,7 +288,9 @@ fn read_dir_impl(path: &PathBuf, parent: &Directory, cancel_checker: &Receiver<(
     );
     let unchecked_directory_info = fs::read_dir(&path);
     match unchecked_directory_info {
-        Ok(directory_info) => build_directories(directory_info.filter_map(Result::ok).collect(), directory, parent, cancel_checker),
+        Ok(directory_info) => build_directories(directory_info
+                .filter_map(Result::ok)
+                .collect(), directory, parent, cancel_checker),
         Err(_e) => directory,
     }
 }

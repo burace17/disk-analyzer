@@ -17,7 +17,7 @@ pub fn directory_display_view(app: &GUI) -> Element<ApplicationEvent> {
         .iter()
         .fold(header_view, |acc, (k, _v)| acc.push(text(k)));
     let dir = &app.dir;
-    let dir_clone = dir.clone();
+    let dir_clone = dir; //.clone();
     let directory_content = analyzer::fill_list_store(dir_clone);
     let directory_list = directory_content.iter().map(|dir_store| {
         let icon = "f";

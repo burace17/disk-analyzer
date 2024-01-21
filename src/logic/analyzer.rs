@@ -12,6 +12,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex, Weak},
 };
+use archery::ArcTK;
 static FOLDER_ICON: &str = "folder";
 static ERROR_ICON: &str = "dialog-error";
 
@@ -24,10 +25,16 @@ pub struct DirStore {
     pub inner_size: u64,
 }
 
-pub fn fill_list_store(dir: Directory) -> HashTrieSet<DirStore> {
-    let current_directory = dir.clone();
+pub fn fill_list_store(dir: &Directory) -> HashTrieSet<DirStore, ArcTK> {
+    let current_directory = dir; //.clone();
     let current_directory_size = current_directory.get_size();
-    let current_sub_directories = current_directory.get_subdirectories();
+    let current_sub_directories = current_directory
+        .get_subdirectories()
+        .iter()
+        .cloned()
+        .collect::<HashTrieSet<Directory, ArcTK>>()
+        
+        ;
     let make_store_by_icon = |icon: &str, subdir: &Directory| -> DirStore {
         DirStore {
             icon: String::from(icon),
@@ -40,26 +47,26 @@ pub fn fill_list_store(dir: Directory) -> HashTrieSet<DirStore> {
         .iter()
         .filter(|subdir| subdir.has_error())
         .cloned()
-        .collect::<HashTrieSet<Directory>>();
+        .collect::<HashTrieSet<Directory, ArcTK>>();
     let valid_stores = current_sub_directories.iter()
-        .filter(|subdir| !error_dirs.contains(&subdir))
+        .filter(|subdir| !error_dirs.contains(subdir))
         // .difference(&error_dirs)
         .map(|subdir| make_store_by_icon(FOLDER_ICON, subdir))
-        .collect::<HashTrieSet<DirStore>>();
+        .collect::<HashTrieSet<DirStore, ArcTK>>();
     let error_stores = error_dirs
         .iter()
         .map(|subdir| make_store_by_icon(ERROR_ICON, subdir))
-        .collect::<HashTrieSet<DirStore>>();
+        .collect::<HashTrieSet<DirStore, ArcTK>>();
     let dir_stores = valid_stores.iter()
         .fold(error_stores, |dir_stores, valid_store| {
-            dir_stores.insert(*valid_store)
+            dir_stores.insert(valid_store.clone())
         })
         // .iter()
         // .cloned()
         // .collect::<HashTrieSet<DirStore>>()
         ;
     let current_directory_files = current_directory.get_files();
-    let file_stores: HashTrieSet<DirStore> = current_directory_files
+    let file_stores: HashTrieSet<DirStore, ArcTK> = current_directory_files
         .iter()
         .map(|file| DirStore {
             icon: String::from(file.get_mime()),
@@ -69,7 +76,7 @@ pub fn fill_list_store(dir: Directory) -> HashTrieSet<DirStore> {
         })
         .collect();
     let store_list = dir_stores.iter()
-        .fold(file_stores, |store_list, dir_store| store_list.insert(*dir_store))
+        .fold(file_stores, |store_list, dir_store| store_list.insert(dir_store.clone()))
         // .union(&file_stores)
         // .cloned()
         // .collect::<HashTrieSet<DirStore>>()
